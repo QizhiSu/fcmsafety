@@ -137,6 +137,8 @@ extract_meta <- function(data, cas = FALSE, flavornet = FALSE) {
       tmp <- webchem::pc_sect(data$CID[i], "cas")$Result[1] %>%
         suppressWarnings()
       if(length(tmp) != 0){data$CAS_retrieved[i] <- tmp}
+
+      tmp <- NA
     }
   }
 

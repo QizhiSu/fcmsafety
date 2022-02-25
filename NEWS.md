@@ -1,3 +1,6 @@
+# fcmsafety 0.1.5
+## Fix the extract_meta() bug about CAS retrieval
+
 # fcmsafety 0.1.4
 ## Add a function to assign meta data
 
