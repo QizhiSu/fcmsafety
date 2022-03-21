@@ -125,7 +125,8 @@ extract_meta <- function(data, cas = FALSE, flavornet = FALSE) {
     filter(!is.na(CID)) %>%
     distinct(CID) %>%
     pc_prop(properties =
-              c("IsomericSMILES", "InChIKey", "ExactMass", "MolecularFormula")) %>%
+              c("IsomericSMILES", "InChIKey", "ExactMass",
+                "MolecularFormula", "IUPACName")) %>%
     left_join(data, ., by = "CID") %>%
     rename(SMILES = IsomericSMILES,
            Formula = MolecularFormula)
