@@ -23,15 +23,17 @@ export4toxtree <-
   function(data, cas_col,
            name_col,
            output = "for_toxtree.csv") {
-  data <- data %>%
-    mutate(NAME = .[, name_col],
-           CAS = .[, cas_col],
-           SMILES = SMILES) %>%
-    select(NAME, CAS, SMILES) %>%
-    filter(!is.na(SMILES))
+    data <- data %>%
+      mutate(
+        NAME = .[, name_col],
+        CAS = .[, cas_col],
+        SMILES = SMILES
+      ) %>%
+      select(NAME, CAS, SMILES) %>%
+      filter(!is.na(SMILES))
 
-  rio::export(data, output)
-}
+    rio::export(data, output)
+  }
 
 
 #' Assign toxicity levels
@@ -53,66 +55,76 @@ export4toxtree <-
 #' @export
 assign_toxicity <-
   function(data, toxtree_result = "toxtree_results.csv") {
-  # read in toxtree result
-  tox <- read.csv(toxtree_result)
+    # read in toxtree result
+    tox <- read.csv(toxtree_result)
 
-  data <- data %>%
-    mutate(
-      Cramer_rules = tox$Cramer.rules[match(SMILES, tox$SMILES)],
-      # to check if the compounds present in any of the database
-      SVHC = case_when(InChIKey %in% svhc_meta$InChIKey ~ "Y"),
-      CMR = case_when(InChIKey %in% cmr_meta$InChIKey ~ "Y"),
-      CMR_suspect = case_when(InChIKey %in% cmr_suspect_meta$InChIKey ~ "Y"),
-      EDC = case_when(InChIKey %in% edc_meta$InChIKey ~ "Y"),
-      IARC = iarc_meta$Group[match(InChIKey, iarc_meta$InChIKey)] %>% na_if("3"),
-      EU_SML = eu_sml_meta$SML[match(InChIKey, eu_sml_meta$InChIKey)],
-      EU_SML_group = eu_sml_meta$SML_group[match(InChIKey, eu_sml_meta$InChIKey)],
-      # it is possible to have both SML and SML_group
-      # in this case, use only SML
-      EU_SML = case_when(
-        is.na(EU_SML) & !is.na(EU_SML_group)
-        ~ eu_sml_group$SML[match(EU_SML_group, eu_sml_group$`Group Restriction No`)],
-        TRUE ~ EU_SML),
-      China_SML = china_sml_meta$SML[match(InChIKey, china_sml_meta$InChIKey)],
-      China_SML_group = china_sml_meta$SML_group[match(InChIKey, china_sml_meta$InChIKey)],
-      China_SML = case_when(is.na(China_SML & ! is.na(China_SML_group)) ~ China_SML_group,
-                            TRUE ~ China_SML),
+    data <- data %>%
+      mutate(
+        Cramer_rules = tox$Cramer.rules[match(SMILES, tox$SMILES)],
+        # to check if the compounds present in any of the database
+        SVHC = case_when(InChIKey %in% svhc_meta$InChIKey ~ "Y"),
+        CMR = case_when(InChIKey %in% cmr_meta$InChIKey ~ "Y"),
+        CMR_suspect = case_when(InChIKey %in% cmr_suspect_meta$InChIKey ~ "Y"),
+        EDC = case_when(InChIKey %in% edc_meta$InChIKey ~ "Y"),
+        IARC = iarc_meta$Group[match(InChIKey, iarc_meta$InChIKey)] %>% na_if("3"),
+        EU_SML = eu_sml_meta$SML[match(InChIKey, eu_sml_meta$InChIKey)],
+        EU_SML_group = eu_sml_meta$SML_group[match(InChIKey, eu_sml_meta$InChIKey)],
+        # it is possible to have both SML and SML_group
+        # in this case, use only SML
+        EU_SML = case_when(
+          is.na(EU_SML) & !is.na(EU_SML_group)
+          ~ eu_sml_group$SML[match(EU_SML_group, eu_sml_group$`Group Restriction No`)],
+          TRUE ~ EU_SML
+        ),
+        China_SML = china_sml_meta$SML[match(InChIKey, china_sml_meta$InChIKey)],
+        China_SML_group = china_sml_meta$SML_group[match(InChIKey, china_sml_meta$InChIKey)],
+        China_SML = case_when(
+          is.na(China_SML & !is.na(China_SML_group)) ~ China_SML_group,
+          TRUE ~ China_SML
+        ),
+        Cramer_rules = case_when(
+          !is.na(SVHC) | !is.na(CMR) | !is.na(CMR_suspect) | !is.na(EDC) |
+            !is.na(IARC) | !is.na(EU_SML) | !is.na(China_SML) ~ "-",
+          TRUE ~ Cramer_rules
+        ),
 
-      Cramer_rules = case_when(
-        !is.na(SVHC) | !is.na(CMR) | !is.na(CMR_suspect) | !is.na(EDC)
-        | !is.na(IARC) | !is.na(EU_SML) | !is.na(China_SML) ~ "-",
-        TRUE ~ Cramer_rules
-      ),
+        # assign toxiticy
+        Toxic_level = case_when(
+          !is.na(SVHC) | !is.na(CMR) | !is.na(EDC) | IARC == "1" |
+            EU_SML <= 0.018 | China_SML <= 0.018 ~ "V",
+          !is.na(CMR_suspect) | IARC == "2A" | IARC == "2B" |
+            Cramer_rules == "High (Class III)" |
+            (EU_SML > 0.018 & EU_SML <= 0.09) | (China_SML > 0.018 & China_SML <= 0.09) ~ "IV",
+          Cramer_rules == "Intermediate (Class II)" |
+            (EU_SML > 0.09 & EU_SML <= 0.54) | (China_SML > 0.09 & China_SML <= 0.54) ~ "III",
+          Cramer_rules == "Low (Class I)" |
+            (EU_SML > 0.54 & EU_SML <= 1.8) | (China_SML > 0.54 & China_SML <= 1.8) ~ "II",
+          (EU_SML > 1.8 & EU_SML <= 60) | (China_SML > 1.8 & China_SML <= 60) ~ "I"
+        ),
 
-      # assign toxiticy
-      Toxic_level = case_when(
-        !is.na(SVHC) | !is.na(CMR) | !is.na(EDC) | IARC == "1" |
-          EU_SML <= 0.018 | China_SML <= 0.018 ~ "V",
+        # mark group SML
+        EU_SML = case_when(
+          !is.na(EU_SML_group) ~ paste0(EU_SML, "*"),
+          TRUE ~ as.character(EU_SML)
+        ),
+        China_SML = case_when(
+          !is.na(China_SML_group) ~ paste0(China_SML, "*"),
+          TRUE ~ as.character(China_SML)
+        ),
+        EU_SML_group = NULL,
+        China_SML_group = NULL
+      )
 
-        !is.na(CMR_suspect) | IARC == "2A" | IARC == "2B"
-        | Cramer_rules == "High (Class III)" |
-          (EU_SML > 0.018 & EU_SML <= 0.09) | (China_SML > 0.018 & China_SML <= 0.09) ~ "IV",
+    # replace NA with "-
+    data[is.na(data)] <- "-"
 
-        Cramer_rules == "Intermediate (Class II)" |
-          (EU_SML > 0.09 & EU_SML <= 0.54) | (China_SML > 0.09 & China_SML <= 0.54) ~ "III",
+    if ("Flavornet" %in% colnames(data)) {
+      data <- relocate(data, kingdom:ncol(data), .after = Flavornet)
+    } else if ("CAS_retrieved" %in% colnames(data)) {
+      data <- relocate(data, kingdom:ncol(data), .after = CAS_retrieved)
+    } else if ("ExactMass" %in% colnames(data)) {
+      data <- relocate(data, kingdom:ncol(data), .after = ExactMass)
+    }
 
-        Cramer_rules == "Low (Class I)" |
-          (EU_SML > 0.54 & EU_SML <= 1.8) | (China_SML > 0.54 & China_SML <= 1.8) ~ "II",
-
-        (EU_SML > 1.8 & EU_SML <= 60) | (China_SML > 1.8 & China_SML <= 60) ~ "I"
-      ),
-
-      # mark group SML
-      EU_SML = case_when(!is.na(EU_SML_group) ~ paste0(EU_SML, "*"),
-                         TRUE ~ as.character(EU_SML)),
-      China_SML = case_when(!is.na(China_SML_group) ~ paste0(China_SML, "*"),
-                            TRUE ~ as.character(China_SML)),
-      EU_SML_group = NULL,
-      China_SML_group = NULL
-    )
-
-  # replace NA with "-
-  data[is.na(data)] <- "-"
-
-  return(data)
-}
+    return(data)
+  }

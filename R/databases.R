@@ -39,14 +39,15 @@
 #' @importFrom utils download.file
 update_databases <-
   function(svhc = TRUE, cmr = TRUE, iarc = TRUE, eu_sml = TRUE) {
-    if(!dir.exists(paste0(getwd(),"/inst")))
-      dir.create(paste0(getwd(),"/inst"))
+    if (!dir.exists(paste0(getwd(), "/inst"))) {
+      dir.create(paste0(getwd(), "/inst"))
+    }
 
     if (svhc == TRUE) {
       # SVHC https://echa.europa.eu/candidate-list-table
       # the url is available via checking the Network tab in the Inspect menu in Chrome
       url <-
-        'https://echa.europa.eu/candidate-list-table?p_p_id=disslists_WAR_disslistsportlet&p_p_lifecycle=2&p_p_state=normal&p_p_mode=view&p_p_resource_id=exportResults&p_p_cacheability=cacheLevelPage'
+        "https://echa.europa.eu/candidate-list-table?p_p_id=disslists_WAR_disslistsportlet&p_p_lifecycle=2&p_p_state=normal&p_p_mode=view&p_p_resource_id=exportResults&p_p_cacheability=cacheLevelPage"
       httr::POST(
         url,
         body = list(
@@ -96,7 +97,7 @@ update_databases <-
         as_tibble() %>%
         filter(str_detect(value, "documents/10162/17218/annex_vi_clp"))
       # have to add https//echa.europa.eu at the beginning
-      url <- paste0("https://echa.europa.eu", url_list[nrow(url_list),])
+      url <- paste0("https://echa.europa.eu", url_list[nrow(url_list), ])
       # download the latest clp list
       download.file(url, paste0(getwd(), "/inst/clp.xlsx"), quiet = TRUE, mode = "wb")
 
@@ -104,8 +105,9 @@ update_databases <-
       clp <- suppressMessages(rio::import(paste0(getwd(), "/inst/clp.xlsx"), skip = 3))
       # rename some columns
       for (i in 1:ncol(clp)) {
-        if (!is.na(clp[1, i]))
+        if (!is.na(clp[1, i])) {
           colnames(clp)[i] <- clp[1, i]
+        }
       }
       clp <- clp[-1, ] # remove first row
 
@@ -119,8 +121,10 @@ update_databases <-
         extract_cid(cas_col = 4, name_col = 2)
       cmr_suspect_meta <- extract_meta(cmr_suspect)
       # export cmr and cmr_suspect to a single file but different sheet
-      rio::export(list(cmr = cmr_meta, cmr_suspect = cmr_suspect_meta),
-                  paste0(getwd(), "/inst/clp_cmr_meta.xlsx"))
+      rio::export(
+        list(cmr = cmr_meta, cmr_suspect = cmr_suspect_meta),
+        paste0(getwd(), "/inst/clp_cmr_meta.xlsx")
+      )
     }
 
 
@@ -135,7 +139,7 @@ update_databases <-
           "download.prompt_for_download" = FALSE,
           "download.default_directory" = path
         ),
-        args = c('--disable-gpu', '--window-size=600,800')
+        args = c("--disable-gpu", "--window-size=600,800")
       ))
       # lauch a chrome driver
       driver <- RSelenium::rsDriver(
@@ -149,19 +153,21 @@ update_databases <-
             stdout = TRUE,
             stderr = TRUE
           ) %>%
-          stringr::str_extract(pattern = "(?<=Version=)\\d+\\.\\d+\\.\\d+\\.") %>%
-          magrittr::extract(!is.na(.)) %>%
-          stringr::str_replace_all(pattern = "\\.",
-                                   replacement = "\\\\.") %>%
-          paste0("^",  .) %>%
-          stringr::str_subset(
-            string =
-              binman::list_versions(appname = "chromedriver") %>%
-              dplyr::last()
-          ) %>%
-          as.numeric_version() %>%
-          max() %>%
-          as.character(),
+            stringr::str_extract(pattern = "(?<=Version=)\\d+\\.\\d+\\.\\d+\\.") %>%
+            magrittr::extract(!is.na(.)) %>%
+            stringr::str_replace_all(
+              pattern = "\\.",
+              replacement = "\\\\."
+            ) %>%
+            paste0("^", .) %>%
+            stringr::str_subset(
+              string =
+                binman::list_versions(appname = "chromedriver") %>%
+                  dplyr::last()
+            ) %>%
+            as.numeric_version() %>%
+            max() %>%
+            as.character(),
         # use free port to allowed being repeatedly executed
         port = netstat::free_port(),
         extraCapabilities = ecaps
@@ -172,7 +178,8 @@ update_databases <-
       buttom_element <-
         remote_driver$findElement(
           using = "xpath",
-          value = '//*[@id="table_wrapper"]/div[1]/button[3]')
+          value = '//*[@id="table_wrapper"]/div[1]/button[3]'
+        )
       buttom_element$clickElement()
       Sys.sleep(2)
       remote_driver$close()
@@ -182,10 +189,13 @@ update_databases <-
         str_remove_all(paste0(getwd(), "/inst/"))
       file_name <- all_files[str_which(
         all_files,
-        "Agents Classified by the IARC Monographs")]
+        "Agents Classified by the IARC Monographs"
+      )]
       # move the file to the desired directory
-      file.rename(file.path(paste0(getwd(), "/inst/"), file_name),
-                  file.path(paste0(getwd(), "/inst/iarc.xlsx")))
+      file.rename(
+        file.path(paste0(getwd(), "/inst/"), file_name),
+        file.path(paste0(getwd(), "/inst/iarc.xlsx"))
+      )
 
       # read in the file and extract meta
       iarc <- rio::import(paste0(getwd(), "/inst/iarc.xlsx"), skip = 1)
@@ -200,7 +210,7 @@ update_databases <-
       url <- "https://eur-lex.europa.eu/legal-content/EN/TXT/HTML/?uri=CELEX:02011R0010-20200923&qid=1636402301680&from=en"
       # nodes of all tables
       eu_nodes <- read_html(url) %>% html_elements("div.centered table tbody")
-      eu_sml <-  eu_nodes %>%
+      eu_sml <- eu_nodes %>%
         .[[1]] %>%
         html_table(header = TRUE) %>%
         suppressWarnings() %>%
@@ -216,8 +226,10 @@ update_databases <-
         filter(!str_detect(`FCM substance No`, "\u25bc")) %>%
         distinct(`Group Restriction No`, .keep_all = TRUE)
       # export the extacted table into a single excel file
-      rio::export(list(SML = eu_sml, SML_group = eu_sml_group),
-                  paste0(getwd(), "/inst/eu10_2011.xlsx"))
+      rio::export(
+        list(SML = eu_sml, SML_group = eu_sml_group),
+        paste0(getwd(), "/inst/eu10_2011.xlsx")
+      )
 
       # clean CAS and extract meta
       eu_sml <- eu_sml %>%
@@ -251,32 +263,41 @@ update_databases <-
 #'
 #' @importFrom rio import export
 load_databases <- function(use_default = TRUE) {
-  if(use_default == FALSE) {
+  if (use_default == FALSE) {
     svhc_meta <- rio::import(paste0(getwd(), "/inst/svhc_meta.xlsx"))
     cmr_meta <- rio::import(paste0(getwd(), "/inst/clp_cmr_meta.xlsx"),
-                             sheet = "cmr")
+      sheet = "cmr"
+    )
     cmr_suspect_meta <- rio::import(paste0(getwd(), "/inst/clp_cmr_meta.xlsx"),
-                                     sheet = "cmr_suspect")
+      sheet = "cmr_suspect"
+    )
     iarc_meta <- rio::import(paste0(getwd(), "/inst/iarc_meta.xlsx"))
     eu_sml_meta <- rio::import(paste0(getwd(), "/inst/eu10_2011_meta.xlsx"))
     eu_sml_group <- rio::import(paste0(getwd(), "/inst/eu10_2011.xlsx"),
-                                 sheet = "SML_group")
+      sheet = "SML_group"
+    )
     edc_meta <- rio::import(paste0(getwd(), "/inst/edc_meta.xlsx"))
     china_sml_meta <- rio::import(paste0(getwd(), "/inst/china_sml_meta_cleaned.xlsx"))
   } else {
     svhc_meta <- rio::import(system.file("svhc_meta.xlsx", package = "fcmsafety"))
     cmr_meta <- rio::import(system.file("clp_cmr_meta.xlsx", package = "fcmsafety"),
-                             sheet = "cmr")
-    cmr_suspect_meta <- rio::import(system.file("clp_cmr_meta.xlsx",
-                                                 package = "fcmsafety"),
-                                     sheet = "cmr_suspect")
+      sheet = "cmr"
+    )
+    cmr_suspect_meta <- rio::import(
+      system.file("clp_cmr_meta.xlsx",
+        package = "fcmsafety"
+      ),
+      sheet = "cmr_suspect"
+    )
     iarc_meta <- rio::import(system.file("iarc_meta.xlsx", package = "fcmsafety"))
     eu_sml_meta <- rio::import(system.file("eu10_2011_meta.xlsx", package = "fcmsafety"))
     eu_sml_group <- rio::import(system.file("eu10_2011.xlsx", package = "fcmsafety"),
-                                 sheet = "SML_group")
+      sheet = "SML_group"
+    )
     edc_meta <- rio::import(system.file("edc_meta.xlsx", package = "fcmsafety"))
     china_sml_meta <- rio::import(system.file("china_sml_meta_cleaned.xlsx",
-                                               package = "fcmsafety")) %>%
+      package = "fcmsafety"
+    )) %>%
       suppressWarnings()
   }
 
@@ -287,25 +308,27 @@ load_databases <- function(use_default = TRUE) {
   iarc_meta <<- iarc_meta %>% filter(!is.na(InChIKey))
   eu_sml_meta <<- eu_sml_meta %>%
     filter(!is.na(InChIKey)) %>%
-    rename(SML = `SML\r\n                     [mg/kg]`,
-           SML_group = `SML(T)\r\n                     [mg/kg]\r\n                     (Group restriction No)`) %>%
-    mutate(SML = SML %>%
-             str_replace(",", ".") %>%
-             str_replace("ND", "0.01") %>%
-             # soybean oil expoxidized have 2 SML, keep only the first one
-             str_remove_all("\n.*$") %>%
-             trimws() %>%
-             as.numeric(),
-           SML_group = str_remove_all(SML_group, "\\(|\\)"))
+    rename(
+      SML = `SML\r\n                     [mg/kg]`,
+      SML_group = `SML(T)\r\n                     [mg/kg]\r\n                     (Group restriction No)`
+    ) %>%
+    mutate(
+      SML = SML %>%
+        str_replace(",", ".") %>%
+        str_replace("ND", "0.01") %>%
+        # soybean oil expoxidized have 2 SML, keep only the first one
+        str_remove_all("\n.*$") %>%
+        trimws() %>%
+        as.numeric(),
+      SML_group = str_remove_all(SML_group, "\\(|\\)")
+    )
   eu_sml_group <<- eu_sml_group %>%
     rename(SML = `SML (T)\r\n                     [mg/kg]`) %>%
     mutate(SML = SML %>%
-             str_replace(",", ".") %>%
-             str_replace("ND", "0.01") %>%
-             trimws() %>%
-             as.numeric())
+      str_replace(",", ".") %>%
+      str_replace("ND", "0.01") %>%
+      trimws() %>%
+      as.numeric())
   edc_meta <<- edc_meta %>% filter(!is.na(InChIKey))
   china_sml_meta <<- china_sml_meta
-
 }
-
