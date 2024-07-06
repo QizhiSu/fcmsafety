@@ -119,11 +119,11 @@ assign_toxicity <-
     data[is.na(data)] <- "-"
 
     if ("Flavornet" %in% colnames(data)) {
-      data <- relocate(data, kingdom:ncol(data), .after = Flavornet)
+      data <- relocate(data, Cramer_rules:Toxic_level, .after = Flavornet)
     } else if ("CAS_retrieved" %in% colnames(data)) {
-      data <- relocate(data, kingdom:ncol(data), .after = CAS_retrieved)
+      data <- relocate(data, Cramer_rules:Toxic_level, .after = CAS_retrieved)
     } else if ("ExactMass" %in% colnames(data)) {
-      data <- relocate(data, kingdom:ncol(data), .after = ExactMass)
+      data <- relocate(data, Cramer_rules:Toxic_level, .after = ExactMass)
     }
 
     return(data)
