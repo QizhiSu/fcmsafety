@@ -31,12 +31,14 @@
 #' @import rvest
 #' @import httr
 #' @import RSelenium
+#' @import labtools
 #' @importFrom binman list_versions
 #' @importFrom netstat free_port
 #' @importFrom fs dir_ls
 #' @importFrom janitor row_to_names
 #' @importFrom magrittr extract
 #' @importFrom utils download.file
+#'
 update_databases <-
   function(svhc = TRUE, cmr = TRUE, iarc = TRUE, eu_sml = TRUE) {
     if (!dir.exists(paste0(getwd(), "/inst"))) {
@@ -47,15 +49,15 @@ update_databases <-
       # SVHC https://echa.europa.eu/candidate-list-table
       # the url is available via checking the Network tab in the Inspect menu in Chrome
       url <-
-        "https://echa.europa.eu/candidate-list-table?p_p_id=disslists_WAR_disslistsportlet&p_p_lifecycle=2&p_p_state=normal&p_p_mode=view&p_p_resource_id=exportResults&p_p_cacheability=cacheLevelPage"
+        "https://echa.europa.eu/candidate-list-table?p_p_id=disslists_WAR_disslistsportlet&p_p_lifecycle=2&p_p_state=normal&p_p_mode=view&p_p_resource_id=exportResults&p_p_cacheability=cacheLevelPage" # nolint
       httr::POST(
         url,
         body = list(
           "_disslists_WAR_disslistsportlet_formDate" = as.numeric(as.POSIXct(Sys.time())) * 1000,
-          "_disslists_WAR_disslistsportlet_exportColumns" = "name,ecNumber,casNumber,haz_detailed_concern,dte_inclusion,doc_cat_decision,doc_cat_iuclid_dossier,doc_cat_supdoc,doc_cat_rcom,prc_external_remarks",
+          "_disslists_WAR_disslistsportlet_exportColumns" = "name,ecNumber,casNumber,haz_detailed_concern,dte_inclusion,doc_cat_decision,doc_cat_iuclid_dossier,doc_cat_supdoc,doc_cat_rcom,prc_external_remarks", # nolint
           "_disslists_WAR_disslistsportlet_orderByCol" = "dte_inclusion",
           "_disslists_WAR_disslistsportlet_orderByType" = "desc",
-          "_disslists_WAR_disslistsportlet_searchFormColumns" = "haz_detailed_concern,dte_inclusion",
+          "_disslists_WAR_disslistsportlet_searchFormColumns" = "haz_detailed_concern,dte_inclusion", # nolint
           "_disslists_WAR_disslistsportlet_searchFormElements" = "DROP_DOWN,DATE_PICKER",
           "_disslists_WAR_disslistsportlet_substance_identifier_field_key" = "",
           "_disslists_WAR_disslistsportlet_haz_detailed_concern" = "",
@@ -79,8 +81,8 @@ update_databases <-
               "Trixylenyl phosphate"
             )
         ) %>%
-        extract_cid(cas_col = 4, name_col = 1)
-      svhc_meta <- extract_meta(svhc)
+        labtools::extract_cid(cas_col = 4, name_col = 1)
+      svhc_meta <- labtools::extract_meta(svhc)
       # export the table with meta data
       rio::export(svhc_meta, paste0(getwd(), "/inst/svhc.xlsx"))
     }
@@ -104,7 +106,7 @@ update_databases <-
       # import the download latest clp list file
       clp <- suppressMessages(rio::import(paste0(getwd(), "/inst/clp.xlsx"), skip = 3))
       # rename some columns
-      for (i in 1:ncol(clp)) {
+      for (i in seq_len(ncol(clp))) {
         if (!is.na(clp[1, i])) {
           colnames(clp)[i] <- clp[1, i]
         }
@@ -114,12 +116,12 @@ update_databases <-
       # subset for CMR and suspect CMR
       cmr <- clp %>%
         filter(str_detect(`Hazard Statement Code(s)`, "H340|H350|H360")) %>%
-        extract_cid(cas_col = 4, name_col = 2)
-      cmr_meta <- extract_meta(cmr)
+        labtools::extract_cid(cas_col = 4, name_col = 2)
+      cmr_meta <- labtools::extract_meta(cmr)
       cmr_suspect <- clp %>%
         filter(str_detect(`Hazard Statement Code(s)`, "H341|H351|H361")) %>%
-        extract_cid(cas_col = 4, name_col = 2)
-      cmr_suspect_meta <- extract_meta(cmr_suspect)
+        labtools::extract_cid(cas_col = 4, name_col = 2)
+      cmr_suspect_meta <- labtools::extract_meta(cmr_suspect)
       # export cmr and cmr_suspect to a single file but different sheet
       rio::export(
         list(cmr = cmr_meta, cmr_suspect = cmr_suspect_meta),
@@ -131,7 +133,8 @@ update_databases <-
     if (iarc == TRUE) {
       # the IARC database, https://monographs.iarc.who.int/agents-classified-by-the-iarc/
       url <- "https://monographs.iarc.who.int/list-of-classifications"
-      path <- gsub("/", "\\\\", paste0(getwd(), "/inst")) # set the working directory for downloading
+      # set the working directory for downloading
+      path <- gsub("/", "\\\\", paste0(getwd(), "/inst"))
       # set up extra capabilities
       ecaps <- list(chromeOptions = list(
         prefs = list(
@@ -149,7 +152,7 @@ update_databases <-
         chromever =
           system2(
             command = "wmic",
-            args = 'datafile where name="C:\\\\Program Files (x86)\\\\Google\\\\Chrome\\\\Application\\\\chrome.exe" get Version /value',
+            args = 'datafile where name="C:\\\\Program Files (x86)\\\\Google\\\\Chrome\\\\Application\\\\chrome.exe" get Version /value', # nolint
             stdout = TRUE,
             stderr = TRUE
           ) %>%
@@ -199,15 +202,15 @@ update_databases <-
 
       # read in the file and extract meta
       iarc <- rio::import(paste0(getwd(), "/inst/iarc.xlsx"), skip = 1)
-      iarc <- iarc %>% extract_cid(cas_col = 1, name_col = 2)
-      iarc_meta <- extract_meta(iarc)
+      iarc <- iarc %>% labtools::extract_cid(cas_col = 1, name_col = 2)
+      iarc_meta <- labtools::extract_meta(iarc)
       rio::export(iarc_meta, paste0(getwd(), "/inst/iarc_meta.xlsx"))
     }
 
 
     if (eu_sml == TRUE) {
       # EU 10/2011, no up to date
-      url <- "https://eur-lex.europa.eu/legal-content/EN/TXT/HTML/?uri=CELEX:02011R0010-20200923&qid=1636402301680&from=en"
+      url <- "https://eur-lex.europa.eu/legal-content/EN/TXT/HTML/?uri=CELEX:02011R0010-20200923&qid=1636402301680&from=en" # nolint
       # nodes of all tables
       eu_nodes <- read_html(url) %>% html_elements("div.centered table tbody")
       eu_sml <- eu_nodes %>%
@@ -236,8 +239,8 @@ update_databases <-
         mutate(`CAS No` = str_remove(.$`CAS No`, "^0*")) %>%
         mutate(`CAS No` = str_remove(.$`CAS No`, "\n.*")) %>%
         as.data.frame() %>% # don't know why as_data_frame or tibble do not work
-        extract_cid(cas_col = 3, name_col = 4)
-      eu_sml_meta <- extract_meta(eu_sml)
+        labtools::extract_cid(cas_col = 3, name_col = 4)
+      eu_sml_meta <- labtools::extract_meta(eu_sml)
       rio::export(eu_sml_meta, paste0(getwd(), "/inst/eu10_2011_meta.xlsx")) # export complete list
     }
   }
@@ -310,7 +313,7 @@ load_databases <- function(use_default = TRUE) {
     filter(!is.na(InChIKey)) %>%
     rename(
       SML = `SML\r\n                     [mg/kg]`,
-      SML_group = `SML(T)\r\n                     [mg/kg]\r\n                     (Group restriction No)`
+      SML_group = `SML(T)\r\n                     [mg/kg]\r\n                     (Group restriction No)` # nolint
     ) %>%
     mutate(
       SML = SML %>%
