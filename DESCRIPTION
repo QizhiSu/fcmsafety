@@ -16,17 +16,16 @@ Description: The main function of this package is to evaluate the safety of
 License: MIT + file LICENSE
 Encoding: UTF-8
 Roxygen: list(markdown = TRUE)
-RoxygenNote: 7.1.2
+RoxygenNote: 7.3.1
 Imports: 
     binman,
-    classyfireR,
     dplyr,
     fs,
     httr,
     janitor,
+    labtools,
     magrittr,
     netstat,
-    purrr,
     rio,
     RSelenium,
     rvest,
@@ -35,4 +34,4 @@ Imports:
 URL: https://github.com/QizhiSu/fcmsafety
 BugReports: https://github.com/QizhiSu/fcmsafety/issues
 Remotes: 
-    aberHRML/classyfireR
+    QizhiSu/labtools
