@@ -335,3 +335,4 @@ load_databases <- function(use_default = TRUE) {
   edc_meta <<- edc_meta %>% filter(!is.na(InChIKey))
   china_sml_meta <<- china_sml_meta
 }
+

@@ -7,3 +7,7 @@
 toxicity_levels.pptx
 
 R/process_msdial_data.R
+.Rproj.user
+
+# YoYo AI version control directory
+.yoyo/
