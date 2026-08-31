@@ -1,0 +1,385 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>FCMSafety fcmsafety-v2 实习生开发指南</title>
+  <style>
+    * { box-sizing: border-box; margin: 0; padding: 0; }
+    body {
+      font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;
+      line-height: 1.7;
+      color: #1f2937;
+      background: #f3f4f6;
+      padding: 1.5rem;
+    }
+    .container {
+      max-width: 900px;
+      margin: 0 auto;
+      background: #fff;
+      border-radius: 12px;
+      box-shadow: 0 2px 12px rgba(0,0,0,0.08);
+      overflow: hidden;
+    }
+    header {
+      background: linear-gradient(135deg, #4f46e5 0%, #7c3aed 100%);
+      color: white;
+      padding: 2rem 2.5rem;
+    }
+    header h1 { font-size: 1.6rem; margin-bottom: 0.4rem; }
+    header p { opacity: 0.9; font-size: 0.9rem; }
+    .content { padding: 1.5rem 2.5rem 2rem; }
+    h2 {
+      color: #4f46e5;
+      font-size: 1.05rem;
+      margin: 1.8rem 0 0.7rem;
+      padding-bottom: 0.4rem;
+      border-bottom: 2px solid #e0e7ff;
+    }
+    h2:first-child { margin-top: 0; }
+    h3 { color: #374151; font-size: 0.9rem; margin: 1rem 0 0.4rem; font-weight: 600; }
+    h3:first-of-type { margin-top: 0; }
+    p { margin-bottom: 0.5rem; }
+    code {
+      background: #f3f4f6;
+      padding: 0.1rem 0.35rem;
+      border-radius: 4px;
+      font-family: "SF Mono", Monaco, Consolas, monospace;
+      font-size: 0.82em;
+      color: #be185d;
+    }
+    pre {
+      background: #1e1e2e;
+      color: #cdd6f4;
+      padding: 0.9rem 1rem;
+      border-radius: 8px;
+      overflow-x: auto;
+      margin: 0.6rem 0;
+      font-family: "SF Mono", Monaco, Consolas, monospace;
+      font-size: 0.8rem;
+      line-height: 1.7;
+    }
+    pre code { background: none; padding: 0; color: inherit; font-size: inherit; }
+    .comment { color: #6a9955; }
+    .keyword { color: #569cd6; }
+    .string { color: #ce9178; }
+    .command { color: #89dceb; }
+    .output { color: #a6e3a1; }
+    .prompt-box {
+      background: #f8f5ff;
+      border: 2px solid #a78bfa;
+      border-radius: 10px;
+      padding: 0.9rem 1.1rem;
+      margin: 0.7rem 0;
+    }
+    .prompt-box strong {
+      color: #7c3aed;
+      display: block;
+      margin-bottom: 0.3rem;
+      font-size: 0.82rem;
+    }
+    .prompt-box pre {
+      background: #faf8ff;
+      border: 1px solid #ddd6fe;
+      color: #1f2937;
+      font-size: 0.78rem;
+      margin: 0.3rem 0 0;
+      padding: 0.7rem 0.9rem;
+    }
+    .prompt-box pre code { color: inherit; background: none; font-size: inherit; }
+    .warning {
+      background: #fffbeb;
+      border-left: 4px solid #f59e0b;
+      padding: 0.7rem 1rem;
+      margin: 0.7rem 0;
+      border-radius: 6px;
+      font-size: 0.88rem;
+    }
+    .success {
+      background: #f0fdf4;
+      border-left: 4px solid #22c55e;
+      padding: 0.7rem 1rem;
+      margin: 0.7rem 0;
+      border-radius: 6px;
+      font-size: 0.88rem;
+    }
+    .info {
+      background: #eff6ff;
+      border-left: 4px solid #3b82f6;
+      padding: 0.7rem 1rem;
+      margin: 0.7rem 0;
+      border-radius: 6px;
+      font-size: 0.88rem;
+    }
+    ol, ul { margin: 0.5rem 0; padding-left: 1.4rem; }
+    li { margin-bottom: 0.25rem; font-size: 0.88rem; }
+    table { width: 100%; border-collapse: collapse; margin: 0.7rem 0; font-size: 0.82rem; }
+    th, td { border: 1px solid #e5e7eb; padding: 0.5rem 0.7rem; text-align: left; }
+    th { background: #f9fafb; font-weight: 600; }
+    tr:nth-child(even) td { background: #fafafa; }
+    .file-tree {
+      background: #fafafa;
+      border: 1px solid #e5e7eb;
+      border-radius: 8px;
+      padding: 0.8rem 1rem;
+      font-family: monospace;
+      font-size: 0.78rem;
+      line-height: 1.9;
+    }
+    .folder { color: #7c3aed; }
+    .file { color: #374151; }
+    footer {
+      background: #f9fafb;
+      padding: 1rem 2.5rem;
+      text-align: center;
+      color: #6b7280;
+      font-size: 0.8rem;
+      border-top: 1px solid #e5e7eb;
+    }
+    footer a { color: #4f46e5; text-decoration: none; }
+    hr { border: none; border-top: 1px solid #e5e7eb; margin: 1.2rem 0; }
+  </style>
+</head>
+<body>
+  <div class="container">
+    <header>
+      <h1>FCMSafety fcmsafety-v2 实习生开发指南</h1>
+      <p>食品接触材料安全评估 R 包 · AI 辅助开发版 · 必读</p>
+    </header>
+
+    <div class="content">
+
+      <!-- 账号准备 -->
+      <h2>第一步：账号与仓库准备</h2>
+
+      <h3>1.1 注册 GitHub 账号</h3>
+      <ol>
+        <li>打开 <a href="https://github.com" target="_blank">https://github.com</a>，点击 <strong>Sign up</strong></li>
+        <li>填写用户名、邮箱、密码，完成验证</li>
+      </ol>
+
+      <h3>1.2 Fork 仓库</h3>
+      <ol>
+        <li>打开 <a href="https://github.com/QizhiSu/fcmsafety" target="_blank">https://github.com/QizhiSu/fcmsafety</a></li>
+        <li>点击右上角 <strong>Fork</strong> 按钮</li>
+        <li>等待几秒，页面跳转到「你的账号/fcmsafety」，此时你拥有了自己的可读写副本</li>
+      </ol>
+
+      <div class="warning">
+        <strong>⚠️ 注意：</strong>这个项目有两个分支，实习生只需要关注 <code>fcmsafety-v2</code>，不要动 <code>main</code> 分支。
+      </div>
+
+      <!-- 环境配置 -->
+      <h2>第二步：配置本地开发环境</h2>
+
+      <h3>2.1 安装 Git</h3>
+      <ul>
+        <li><strong>macOS：</strong>运行 <code>xcode-select --install</code> 或从 <a href="https://git-scm.com/" target="_blank">git-scm.com</a> 下载</li>
+        <li><strong>Windows：</strong>下载 <a href="https://git-scm.com/" target="_blank">Git for Windows</a></li>
+      </ul>
+
+      <h3>2.2 安装 R</h3>
+      <p>访问 <a href="https://cran.r-project.org/" target="_blank">https://cran.r-project.org/</a>，下载适合你系统的版本并安装。</p>
+
+      <h3>2.3 安装 VS Code（推荐）</h3>
+      <p>不需要安装 RStudio，VS Code 完全够用，而且更适合 AI 辅助开发：</p>
+      <ol>
+        <li>下载安装 <a href="https://code.visualstudio.com/" target="_blank">VS Code</a></li>
+        <li>安装 <strong>R Extension Pack</strong> 扩展（VS Code 侧边栏 → 扩展 → 搜索"R Extension Pack" → 安装）</li>
+        <li>打开项目：<code>File</code> → <code>Open Folder</code> → 选择 <code>fcmsafety</code> 目录</li>
+      </ol>
+
+      <h3>2.4 安装 Java（用于 Toxtree）</h3>
+      <p>Toxtree 需要 Java。终端运行 <code>java -version</code>，如果没有从 <a href="https://www.java.com/download/" target="_blank">java.com</a> 下载安装。</p>
+
+      <h3>2.5 安装 R 包依赖</h3>
+      <p>打开 VS Code 的终端（<code>Ctrl+`</code> 或 <code>Cmd+`</code>），运行：</p>
+      <pre><code><span class="keyword">install.packages</span>(<span class="string">"devtools"</span>)
+<span class="keyword">devtools::install_deps</span>()</code></pre>
+
+      <!-- AI 开发核心 -->
+      <h2>第三步：用 AI 辅助开发</h2>
+
+      <div class="prompt-box">
+        <strong>🤖 给 AI 的第一个 Prompt（复制粘贴即可）：</strong>
+        <pre><code>我需要开发一个 R 包。请帮我做以下事情：
+
+1. 克隆仓库：
+   git clone https://github.com/[你的GitHub用户名]/fcmsafety.git
+   cd fcmsafety
+
+2. 切换到 fcmsafety-v2 分支：
+   git checkout fcmsafety-v2
+
+3. 确认当前在正确分支：
+   git branch -v
+
+4. 阅读 INTERN_HANDOFF.md 文档，了解项目结构
+
+完成后告诉我当前分支和项目主要文件。</code></pre>
+      </div>
+
+      <div class="prompt-box">
+        <strong>🤖 让 AI 开始一个新功能：</strong>
+        <pre><code>请帮我实现以下功能：
+
+[在这里描述你要实现的功能]
+
+注意事项：
+- 在 fcmsafety-v2 分支的功能分支上开发
+- 不要修改 main 分支
+- 写完后运行 devtools::check() 检查是否有错误</code></pre>
+      </div>
+
+      <div class="prompt-box">
+        <strong>🤖 让 AI 修复 bug：</strong>
+        <pre><code>我遇到了这个错误：
+[把错误信息复制到这里]
+
+请帮我分析原因、找到出错位置、修复问题，并解释修复原理。</code></pre>
+      </div>
+
+      <div class="prompt-box">
+        <strong>🤖 让 AI 提交并推送：</strong>
+        <pre><code>请帮我提交当前改动：
+
+1. 查看改动：git status && git diff
+2. 确认改动正确后，添加并提交：git add . && git commit -m "合适的提交信息"
+3. 推送到远程：git push -u origin feature/你的功能名</code></pre>
+      </div>
+
+      <!-- Git 流程 -->
+      <h2>第四步：Git 日常开发流程</h2>
+
+      <h3>4.1 每天开始工作前</h3>
+      <pre><code><span class="command">git</span> checkout fcmsafety-v2
+<span class="command">git</span> pull origin fcmsafety-v2</code></pre>
+
+      <h3>4.2 创建功能分支（每次新任务都要这样做）</h3>
+      <pre><code><span class="command">git</span> checkout -b feature/你的功能名
+
+<span class="comment"># 例如：添加中国 SML 更新函数</span>
+<span class="command">git</span> checkout -b feature/add-china-sml-updater</code></pre>
+
+      <h3>4.3 让 AI 写代码（用第三步的 Prompt）</h3>
+
+      <h3>4.4 提交改动</h3>
+      <pre><code><span class="comment"># 先看改动内容（重要！）</span>
+<span class="command">git</span> status
+<span class="command">git</span> diff
+
+<span class="comment"># 确认正确后提交</span>
+<span class="command">git</span> add .
+<span class="command">git</span> commit -m <span class="string">"feat: 添加中国SML更新函数"</span>
+
+<span class="comment"># 推送到你的 Fork</span>
+<span class="command">git</span> push -u origin feature/你的功能名</code></pre>
+
+      <h3>4.5 创建 Pull Request</h3>
+      <ol>
+        <li>打开你的 Fork 仓库页面（如 <code>https://github.com/zhangsan/fcmsafety</code>）</li>
+        <li>点击 <strong>Compare & pull request</strong></li>
+        <li>确认设置：
+          <ul>
+            <li><strong>base repository:</strong> <code>QizhiSu/fcmsafety</code></li>
+            <li><strong>base:</strong> <code>fcmsafety-v2</code></li>
+            <li><strong>compare:</strong> <code>feature/你的功能名</code></li>
+          </ul>
+        </li>
+        <li>填写标题和说明，点击 <strong>Create pull request</strong></li>
+      </ol>
+
+      <div class="success">
+        流程：开发 → 功能分支提交 → 推送到自己的 Fork → 创建 PR → 等待维护者审核合并
+      </div>
+
+      <!-- 安全规则 -->
+      <h2>第五步：禁止做的事情</h2>
+
+      <div class="warning">
+        <strong>⚠️ AI 开发禁止事项（让 AI 执行命令之前先想一下）：</strong>
+        <ul>
+          <li>❌ 不要删除或修改 <code>main</code> 分支</li>
+          <li>❌ 不要强制推送 <code>git push --force</code></li>
+          <li>❌ 不要提交密码、密钥等敏感信息</li>
+          <li>❌ 不要直接推送到 <code>QizhiSu/fcmsafety</code>（没有权限）</li>
+          <li>❌ 不要删除重要的数据库文件或配置文件</li>
+        </ul>
+      </div>
+
+      <div class="info">
+        <strong>✅ 正确做法：</strong>所有开发在 <code>feature/你的功能名</code> 分支上进行，推送到自己的 Fork，通过 PR 让维护者审核。
+      </div>
+
+      <!-- R 包开发 -->
+      <h2>第六步：R 包开发常用命令</h2>
+
+      <table>
+        <tr><th>场景</th><th>操作</th><th>给 AI 的 Prompt 示例</th></tr>
+        <tr><td>加载包</td><td><code>library(fcmsafety)</code></td><td>—</td></tr>
+        <tr><td>查看数据库状态</td><td><code>fcmsafety_status()</code></td><td>运行 fcmsafety_status() 告诉我结果</td></tr>
+        <tr><td>启动数据库浏览器</td><td><code>launch_database_inspector()</code></td><td>运行 launch_database_inspector()</td></tr>
+        <tr><td>运行测试</td><td><code>devtools::test()</code></td><td>运行 devtools::test()</td></tr>
+        <tr><td>检查包合规性</td><td><code>devtools::check()</code></td><td>运行 devtools::check() 告诉我结果</td></tr>
+        <tr><td>生成文档</td><td><code>devtools::document()</code></td><td>运行 devtools::document()</td></tr>
+        <tr><td>测试 assign_toxicity</td><td>用 example_input.csv</td><td>用 tests/testthat/fixtures/example_input.csv 测试 assign_toxicity</td></tr>
+      </table>
+
+      <!-- 项目结构 -->
+      <h2>第七步：项目文件结构</h2>
+
+      <div class="file-tree">
+<span class="folder">fcmsafety/</span>
+├── <span class="file">fcmsafety.Rproj</span>               <span class="comment">← VS Code 打开项目目录即可，不需要双击这个</span>
+├── <span class="folder">R/</span>                                 <span class="comment">← R 函数源代码，所有开发在这里</span>
+│   ├── assign_toxicity.R             <span class="comment">核心毒性评估函数</span>
+│   ├── direct_sql_toxicity.R        <span class="comment">SQLite 直接查询实现</span>
+│   ├── databases.R                  <span class="comment">数据库更新函数</span>
+│   ├── sqlite_database_manager.R   <span class="comment">SQLite 数据库管理</span>
+│   └── ...
+├── <span class="folder">inst/</span>
+│   └── fcmsafety.db                <span class="comment">SQLite 数据库文件</span>
+├── <span class="folder">database_backup/</span>               <span class="comment">备份的旧版 xlsx 数据</span>
+├── <span class="folder">tests/</span>                         <span class="comment">测试文件</span>
+├── <span class="file">INTERN_HANDOFF.md</span>             <span class="comment">← 交接文档，必读！</span>
+├── <span class="file">DESCRIPTION</span>                   <span class="comment">包描述和依赖</span>
+└── <span class="file">README.md</span>                      <span class="comment">项目说明</span>
+      </div>
+
+      <!-- 同步上游 -->
+      <h2>第八步：同步最新代码</h2>
+
+      <p>原仓库有新更新时需要同步：</p>
+
+      <div class="prompt-box">
+        <strong>🤖 让 AI 帮你同步上游：</strong>
+        <pre><code>请帮我同步 fcmsafety-v2 的最新代码：
+
+1. git remote add upstream https://github.com/QizhiSu/fcmsafety.git
+2. git fetch upstream
+3. git checkout fcmsafety-v2
+4. git merge upstream/fcmsafety-v2
+5. git push origin fcmsafety-v2
+
+如果有冲突，告诉我哪些文件冲突。</code></pre>
+      </div>
+
+      <!-- 遇到问题 -->
+      <h2>第九步：遇到问题怎么办</h2>
+
+      <ol>
+        <li><strong>AI 写错了代码？</strong> 让 AI 解释代码逻辑，指出哪里不对，让 AI 重写</li>
+        <li><strong>Git 报错？</strong> 把错误信息复制给 AI，让 AI 帮你分析</li>
+        <li><strong>不知道从哪开始？</strong> 让 AI 阅读 INTERN_HANDOFF.md，然后问 AI "这个项目的核心功能是什么"</li>
+        <li><strong>不确定能不能做？</strong> 先问 AI "这样做可以吗？"</li>
+        <li><strong>需要帮助？</strong> 联系项目维护者苏麒（93212874sqz@gmail.com）</li>
+      </ol>
+
+    </div>
+
+    <footer>
+      <p>FCMSafety fcmsafety-v2 | <a href="https://github.com/QizhiSu/fcmsafety/tree/fcmsafety-v2">GitHub 分支</a> | <a href="https://github.com/QizhiSu/fcmsafety/blob/fcmsafety-v2/INTERN_HANDOFF.md">INTERN_HANDOFF.md</a></p>
+    </footer>
+  </div>
+</body>
+</html>
