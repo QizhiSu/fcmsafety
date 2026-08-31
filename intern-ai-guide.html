@@ -1,0 +1,437 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>AI 辅助开发指南 — FCMSafety fcmsafety-v2</title>
+  <style>
+    * { box-sizing: border-box; margin: 0; padding: 0; }
+    body {
+      font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;
+      line-height: 1.7;
+      color: #1f2937;
+      background: #f3f4f6;
+      padding: 2rem;
+    }
+    .container {
+      max-width: 860px;
+      margin: 0 auto;
+      background: #fff;
+      border-radius: 12px;
+      box-shadow: 0 2px 12px rgba(0,0,0,0.08);
+      overflow: hidden;
+    }
+    header {
+      background: linear-gradient(135deg, #059669 0%, #0891b2 100%);
+      color: white;
+      padding: 2rem;
+      text-align: center;
+    }
+    header h1 { font-size: 1.6rem; margin-bottom: 0.4rem; }
+    header p { opacity: 0.9; font-size: 0.9rem; }
+    .content { padding: 1.8rem 2rem; }
+    h2 { color: #059669; font-size: 1.1rem; margin: 2rem 0 0.8rem; }
+    h2:first-child { margin-top: 0; }
+    h3 { color: #374151; font-size: 0.95rem; margin: 1.2rem 0 0.4rem; font-weight: 600; }
+    p { margin-bottom: 0.6rem; }
+    code {
+      background: #f3f4f6;
+      padding: 0.1rem 0.35rem;
+      border-radius: 4px;
+      font-family: "SF Mono", Monaco, Consolas, monospace;
+      font-size: 0.85em;
+      color: #be185d;
+    }
+    pre {
+      background: #1e1e2e;
+      color: #cdd6f4;
+      padding: 1rem;
+      border-radius: 8px;
+      overflow-x: auto;
+      margin: 0.8rem 0;
+      font-family: "SF Mono", Monaco, Consolas, monospace;
+      font-size: 0.82rem;
+      line-height: 1.7;
+    }
+    pre code { background: none; padding: 0; color: inherit; font-size: inherit; }
+    .comment { color: #6a9955; }
+    .prompt { color: #89dceb; }
+    .string { color: #ce9178; }
+    .keyword { color: #569cd6; }
+    .output { color: #a6e3a1; }
+    .warning {
+      background: #fffbeb;
+      border-left: 4px solid #f59e0b;
+      padding: 0.8rem 1rem;
+      margin: 1rem 0;
+      border-radius: 6px;
+      font-size: 0.9rem;
+    }
+    .success {
+      background: #f0fdf4;
+      border-left: 4px solid #22c55e;
+      padding: 0.8rem 1rem;
+      margin: 1rem 0;
+      border-radius: 6px;
+      font-size: 0.9rem;
+    }
+    .info {
+      background: #eff6ff;
+      border-left: 4px solid #3b82f6;
+      padding: 0.8rem 1rem;
+      margin: 1rem 0;
+      border-radius: 6px;
+      font-size: 0.9rem;
+    }
+    .prompt-box {
+      background: #f8f5ff;
+      border: 2px solid #a78bfa;
+      border-radius: 10px;
+      padding: 1rem 1.2rem;
+      margin: 0.8rem 0;
+    }
+    .prompt-box strong {
+      color: #7c3aed;
+      display: block;
+      margin-bottom: 0.4rem;
+      font-size: 0.85rem;
+    }
+    .prompt-box pre {
+      background: #faf8ff;
+      border: 1px solid #ddd6fe;
+      color: #1f2937;
+      font-size: 0.8rem;
+      margin: 0.4rem 0 0;
+    }
+    .prompt-box pre code { color: inherit; background: none; font-size: inherit; }
+    ol, ul { margin: 0.6rem 0; padding-left: 1.4rem; }
+    li { margin-bottom: 0.3rem; font-size: 0.9rem; }
+    table { width: 100%; border-collapse: collapse; margin: 0.8rem 0; font-size: 0.85rem; }
+    th, td { border: 1px solid #e5e7eb; padding: 0.6rem; text-align: left; }
+    th { background: #f9fafb; font-weight: 600; }
+    footer {
+      background: #f9fafb;
+      padding: 1.2rem 2rem;
+      text-align: center;
+      color: #6b7280;
+      font-size: 0.82rem;
+      border-top: 1px solid #e5e7eb;
+    }
+    footer a { color: #059669; text-decoration: none; }
+    hr { border: none; border-top: 1px solid #e5e7eb; margin: 1.5rem 0; }
+  </style>
+</head>
+<body>
+  <div class="container">
+    <header>
+      <h1>🤖 AI 辅助开发指南</h1>
+      <p>FCMSafety fcmsafety-v2 分支 · 实习生用 AI 辅助开发的操作手册</p>
+    </header>
+
+    <div class="content">
+
+      <!-- 准备工作 -->
+      <h2>第一步：准备工作（只需做一次）</h2>
+
+      <div class="prompt-box">
+        <strong>📋 给 AI 的第一个 Prompt（复制粘贴即可）：</strong>
+        <pre><code>我想开发一个 R 包项目。请帮我做以下事情：
+
+1. 在终端克隆这个 GitHub 仓库：
+   git clone https://github.com/QizhiSu/fcmsafety.git
+   cd fcmsafety
+
+2. 切换到 fcmsafety-v2 分支：
+   git checkout fcmsafety-v2
+
+3. 确认当前在正确分支：
+   git branch -v
+
+完成后告诉我当前分支是什么，以及项目里有哪些主要文件。</code></pre>
+      </div>
+
+      <div class="warning">
+        <strong>⚠️ 重要提醒：</strong>这个项目有两个分支：
+        <ul>
+          <li><code>main</code> — 旧版本，不要动</li>
+          <li><code>fcmsafety-v2</code> — 新版本，所有开发都在这个分支上</li>
+        </ul>
+        每次开始新任务前，确认 AI 在 <code>fcmsafety-v2</code> 分支上工作。
+      </div>
+
+      <div class="info">
+        <strong>💡 AI 开发的工作模式：</strong>你会把需求告诉 AI，AI 帮你写代码、解释代码、查错。你只需要复制粘贴 Prompt，AI 会帮你执行命令和修改代码。
+      </div>
+
+      <!-- 日常开发 -->
+      <h2>第二步：日常开发流程</h2>
+
+      <h3>2.1 开始一个新任务</h3>
+
+      <div class="prompt-box">
+        <strong>📋 开始开发新功能（复制粘贴，把需求改成你的）：</strong>
+        <pre><code>我需要在 fcmsafety-v2 分支上开发一个新功能。
+
+请先确认当前在 fcmsafety-v2 分支，然后帮我：
+
+1. 创建一个新的功能分支：
+   git checkout -b feature/功能名称
+
+2. 阅读项目中的 INTERN_HANDOFF.md 文档，了解项目结构
+
+3. 告诉我：
+   - 当前在哪个分支
+   - 项目的主要 R 文件有哪些
+   - INTERN_HANDOFF.md 里有什么重要内容
+
+（把"功能名称"改成你实际要做的，比如 "add-china-sml-updater"，
+ 把"需求"改成你具体想实现的功能）</code></pre>
+      </div>
+
+      <h3>2.2 让 AI 写代码</h3>
+
+      <div class="prompt-box">
+        <strong>📋 让 AI 实现具体功能：</strong>
+        <pre><code>请帮我实现以下功能：
+
+[在这里描述你要实现的功能]
+
+注意事项：
+- 所有代码写在 fcmsafety-v2 分支的功能分支上
+- 不要修改 main 分支
+- 修改代码后，用 git status 确认改动
+- 写完代码后，运行 devtools::check() 检查是否有错误</code></pre>
+      </div>
+
+      <div class="prompt-box">
+        <strong>📋 让 AI 修复 bug：</strong>
+        <pre><code>我在运行代码时遇到了这个错误：
+[把错误信息复制到这里]
+
+请帮我：
+1. 分析这个错误的原因
+2. 找到出错的代码位置
+3. 修复这个问题
+4. 解释修复的原理</code></pre>
+      </div>
+
+      <h3>2.3 让 AI 解释代码</h3>
+
+      <div class="prompt-box">
+        <strong>📋 让 AI 解释某个文件或函数：</strong>
+        <pre><code>请帮我解释这个文件/函数：
+
+[把文件名或函数名写在这里，比如 "R/assign_toxicity.R"
+ 或者 "assign_toxicity 函数"]
+
+请告诉我：
+- 这个文件/函数的作用是什么
+- 核心逻辑是什么
+- 输入和输出是什么</code></pre>
+      </div>
+
+      <!-- 提交和推送 -->
+      <h2>第三步：提交代码并推送</h2>
+
+      <h3>3.1 让 AI 帮你提交代码</h3>
+
+      <div class="prompt-box">
+        <strong>📋 提交当前改动：</strong>
+        <pre><code>请帮我提交当前的代码改动：
+
+1. 先查看改动内容：
+   git status
+   git diff
+
+2. 告诉我有哪些文件被修改了
+
+3. 添加改动并提交（请根据改动内容写一个合适的提交信息）：
+   git add .
+   git commit -m "你的提交信息"
+
+4. 把提交推送到远程：
+   git push -u origin feature/功能名称</code></pre>
+      </div>
+
+      <h3>3.2 让 AI 帮你写提交信息</h3>
+
+      <div class="prompt-box">
+        <strong>📋 让 AI 决定提交信息：</strong>
+        <pre><code>请查看当前的代码改动（git diff），然后：
+
+1. 告诉我这些改动做了什么
+2. 根据改动内容写一个合适的提交信息（英文，中文都可以）
+3. 执行 git add . 和 git commit 提交
+4. 如果是第一次推送，执行 git push -u origin 当前分支名</code></pre>
+      </div>
+
+      <div class="warning">
+        <strong>⚠️ 提交前一定要看：</strong>让 AI 执行 <code>git diff</code> 之前，先让 AI 显示改动内容，确认改动正确再提交。不要盲目提交。
+      </div>
+
+      <!-- Pull Request -->
+      <h2>第四步：创建 Pull Request（让维护者审核）</h2>
+
+      <div class="prompt-box">
+        <strong>📋 让 AI 帮你创建 PR：</strong>
+        <pre><code>请帮我创建 Pull Request：
+
+1. 确认当前在哪个分支：git branch -v
+
+2. 确认有哪些改动：git status && git diff --stat
+
+3. 确认远程分支已推送：git log origin/feature/功能名称..HEAD
+
+4. 告诉我我应该去 GitHub 做什么操作：
+   - 打开哪个网址
+   - 选择哪些选项
+   - 填写什么内容</code></pre>
+      </div>
+
+      <div class="success">
+        <strong>✅ 流程总结：</strong><br>
+        开发 → 提交到功能分支 → 推送到你的 GitHub Fork → 在 GitHub 上创建 Pull Request → 等待维护者审核合并
+      </div>
+
+      <!-- 同步上游 -->
+      <h2>第五步：同步最新的代码（定期做）</h2>
+
+      <div class="prompt-box">
+        <strong>📋 让 AI 帮你同步上游更新：</strong>
+        <pre><code>请帮我同步 fcmsafety-v2 分支的最新代码：
+
+1. 添加上游仓库（如果还没有）：
+   git remote add upstream https://github.com/QizhiSu/fcmsafety.git
+
+2. 获取上游最新代码：
+   git fetch upstream
+
+3. 切换到 fcmsafety-v2：
+   git checkout fcmsafety-v2
+
+4. 合并上游更新：
+   git merge upstream/fcmsafety-v2
+
+5. 如果有冲突，告诉我哪些文件冲突，需要我怎么处理
+
+6. 推送更新到我的 Fork：
+   git push origin fcmsafety-v2</code></pre>
+      </div>
+
+      <!-- 常用场景 -->
+      <h2>第六步：常用场景模板</h2>
+
+      <table>
+        <tr><th>场景</th><th>给 AI 的 Prompt</th></tr>
+        <tr>
+          <td>不知道从哪开始</td>
+          <td><code>请阅读 INTERN_HANDOFF.md，然后告诉我这个项目的核心功能是什么，实习生主要做哪些工作</code></td>
+        </tr>
+        <tr>
+          <td>想看数据库状态</td>
+          <td><code>请运行 fcmsafety_status() 和 check_database_status()，告诉我数据库里有哪些表，各有多少条记录</code></td>
+        </tr>
+        <tr>
+          <td>想测试某个函数</td>
+          <td><code>请用 tests/testthat/fixtures/example_input.csv 的数据测试 assign_toxicity 函数</code></td>
+        </tr>
+        <tr>
+          <td>想让 AI 审阅代码</td>
+          <td><code>请审阅 R/assign_toxicity.R 这个文件，告诉我有哪些潜在问题，如何改进</code></td>
+        </tr>
+        <tr>
+          <td>想添加测试</td>
+          <td><code>请为 R/assign_toxicity.R 中的函数添加测试用例，放在 tests/testthat/ 目录下</code></td>
+        </tr>
+        <tr>
+          <td>运行 R CMD check</td>
+          <td><code>请运行 devtools::check() 并告诉我检查结果，有没有错误或警告</code></td>
+        </tr>
+        <tr>
+          <td>重新生成文档</td>
+          <td><code>请运行 devtools::document() 重新生成 R 包的文档</code></td>
+        </tr>
+        <tr>
+          <td>查看改动历史</td>
+          <td><code>请运行 git log --oneline -10 告诉我最近的提交历史</code></td>
+        </tr>
+      </table>
+
+      <!-- 安全规则 -->
+      <h2>第七步：AI 开发安全规则</h2>
+
+      <div class="warning">
+        <strong>⚠️ AI 开发禁止做的事情（让 AI 帮你做之前先想一下）：</strong>
+        <ul>
+          <li>❌ 不要删除 <code>main</code> 分支</li>
+          <li>❌ 不要修改 <code>main</code> 分支的内容</li>
+          <li>❌ 不要强制推送 <code>git push --force</code></li>
+          <li>❌ 不要删除重要的数据库文件或配置文件</li>
+          <li>❌ 不要提交包含密码、密钥等敏感信息的代码</li>
+          <li>❌ 不要直接推送到 <code>QizhiSu/fcmsafety</code> 仓库（没有权限）</li>
+        </ul>
+      </div>
+
+      <div class="info">
+        <strong>💡 正确的做法：</strong>
+        <ul>
+          <li>✅ 所有开发在 <code>feature/你的功能名</code> 分支上进行</li>
+          <li>✅ 推送到自己的 GitHub Fork（你的用户名/fcmsafety）</li>
+          <li>✅ 通过 Pull Request 让维护者审核</li>
+          <li>✅ 提交前让 AI 显示 <code>git diff</code> 确认改动内容</li>
+          <li>✅ 如果 AI 要执行删除文件等危险操作，先问清楚再确认</li>
+        </ul>
+      </div>
+
+      <!-- 流程图 -->
+      <h2>第八步：完整开发流程图</h2>
+
+      <pre><code><span class="comment">┌─────────────────────────────────────────────────────────────┐</span>
+<span class="comment">│  1. 克隆仓库 + 切换到 fcmsafety-v2                        │</span>
+<span class="comment">│     git clone ... && git checkout fcmsafety-v2              │</span>
+<span class="comment">└────────────────────┬──────────────────────────────────────┘</span>
+<span class="comment">                     ▼</span>
+<span class="comment">┌─────────────────────────────────────────────────────────────┐</span>
+<span class="comment">│  2. 创建功能分支                                         │</span>
+<span class="comment">│     git checkout -b feature/你的功能名                     │</span>
+<span class="comment">└────────────────────┬──────────────────────────────────────┘</span>
+<span class="comment">                     ▼</span>
+<span class="comment">┌─────────────────────────────────────────────────────────────┐</span>
+<span class="comment">│  3. 告诉 AI 你想做什么 → AI 写代码                        │</span>
+<span class="comment">│     "请帮我实现 xxx 功能"                                  │</span>
+<span class="comment">└────────────────────┬──────────────────────────────────────┘</span>
+<span class="comment">                     ▼</span>
+<span class="comment">┌─────────────────────────────────────────────────────────────┐</span>
+<span class="comment">│  4. 让 AI 展示改动 → 你确认 → AI 提交                     │</span>
+<span class="comment">│     git diff → git add . → git commit → git push          │</span>
+<span class="comment">└────────────────────┬──────────────────────────────────────┘</span>
+<span class="comment">                     ▼</span>
+<span class="comment">┌─────────────────────────────────────────────────────────────┐</span>
+<span class="comment">│  5. 去 GitHub 网页创建 Pull Request                        │</span>
+<span class="comment">│     base: QizhiSu/fcmsafety  compare: feature/功能名       │</span>
+<span class="comment">└────────────────────┬──────────────────────────────────────┘</span>
+<span class="comment">                     ▼</span>
+<span class="comment">┌─────────────────────────────────────────────────────────────┐</span>
+<span class="comment">│  6. 等待维护者（苏麒）审核和合并                          │</span>
+<span class="comment">└─────────────────────────────────────────────────────────────┘</span></code></pre>
+
+      <!-- 联系方式 -->
+      <h2>第九步：遇到问题怎么办</h2>
+
+      <ol>
+        <li><strong>AI 写错了代码？</strong> 让 AI 解释代码逻辑，指出哪里不对，让 AI 重写</li>
+        <li><strong>不知道怎么做？</strong> 把你的问题完整描述给 AI，包括你看到的错误信息</li>
+        <li><strong>Git 报错？</strong> 把错误信息复制给 AI，让 AI 帮你分析和解决</li>
+        <li><strong>不确定能不能做？</strong> 先问 AI "这样做可以吗？" 确认安全后再执行</li>
+        <li><strong>AI 不知道怎么解决问题？</strong> 在 GitHub 上提交 Issue，描述清楚问题</li>
+        <li><strong>需要帮助？</strong> 联系项目维护者苏麒（93212874sqz@gmail.com）</li>
+      </ol>
+
+    </div>
+
+    <footer>
+      <p>FCMSafety fcmsafety-v2 | <a href="https://github.com/QizhiSu/fcmsafety/tree/fcmsafety-v2">GitHub 分支</a></p>
+    </footer>
+  </div>
+</body>
+</html>
