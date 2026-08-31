@@ -174,9 +174,13 @@
 
       <h3>2.1 安装 Git</h3>
       <ul>
+        <li><strong>Windows：</strong>下载 <a href="https://git-scm.com/" target="_blank">Git for Windows</a>（安装时选默认选项即可）</li>
         <li><strong>macOS：</strong>运行 <code>xcode-select --install</code> 或从 <a href="https://git-scm.com/" target="_blank">git-scm.com</a> 下载</li>
-        <li><strong>Windows：</strong>下载 <a href="https://git-scm.com/" target="_blank">Git for Windows</a></li>
       </ul>
+
+      <div class="warning">
+        <strong>⚠️ Windows 用户注意：</strong>安装 Git for Windows 后，会附带 <strong>Git Bash</strong>（一个类似 Linux 的终端）。本指南中所有 <code>git</code> 命令都在 Git Bash 里运行。打开方式：开始菜单 → 搜索 "Git Bash" → 回车。
+      </div>
 
       <h3>2.2 安装 R</h3>
       <p>访问 <a href="https://cran.r-project.org/" target="_blank">https://cran.r-project.org/</a>，下载适合你系统的版本并安装。</p>
@@ -189,11 +193,15 @@
         <li>打开项目：<code>File</code> → <code>Open Folder</code> → 选择 <code>fcmsafety</code> 目录</li>
       </ol>
 
+      <div class="warning">
+        <strong>⚠️ Windows 用户：</strong>VS Code 内置终端默认是 PowerShell，可以改成 Git Bash 更方便。操作：<code>Ctrl+Shift+P</code> → 输入 "Select Default Profile" → 选择 "Git Bash"。之后 VS Code 里的终端就和 Git Bash 一样了。
+      </div>
+
       <h3>2.4 安装 Java（用于 Toxtree）</h3>
-      <p>Toxtree 需要 Java。终端运行 <code>java -version</code>，如果没有从 <a href="https://www.java.com/download/" target="_blank">java.com</a> 下载安装。</p>
+      <p>Toxtree 需要 Java。打开 Git Bash，运行 <code>java -version</code>，如果没有从 <a href="https://www.java.com/download/" target="_blank">java.com</a> 下载安装。</p>
 
       <h3>2.5 安装 R 包依赖</h3>
-      <p>打开 VS Code 的终端（<code>Ctrl+`</code> 或 <code>Cmd+`</code>），运行：</p>
+      <p>打开 Git Bash 或 VS Code 终端（<code>Ctrl+`</code>），运行：</p>
       <pre><code><span class="keyword">install.packages</span>(<span class="string">"devtools"</span>)
 <span class="keyword">devtools::install_deps</span>()</code></pre>
 
@@ -252,6 +260,7 @@
       <h2>第四步：Git 日常开发流程</h2>
 
       <h3>4.1 每天开始工作前</h3>
+      <p>在 Git Bash（Windows）或终端（macOS）里运行：</p>
       <pre><code><span class="command">git</span> checkout fcmsafety-v2
 <span class="command">git</span> pull origin fcmsafety-v2</code></pre>
 
