@@ -1,0 +1,567 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>FCMSafety fcmsafety-v2 分支开发指南</title>
+  <style>
+    * { box-sizing: border-box; margin: 0; padding: 0; }
+    body {
+      font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;
+      line-height: 1.7;
+      color: #333;
+      background: #f0f2f5;
+      padding: 2rem;
+    }
+    .container {
+      max-width: 860px;
+      margin: 0 auto;
+      background: #fff;
+      border-radius: 12px;
+      box-shadow: 0 2px 16px rgba(0,0,0,0.08);
+      overflow: hidden;
+    }
+    header {
+      background: linear-gradient(135deg, #4f46e5 0%, #7c3aed 100%);
+      color: white;
+      padding: 2.5rem 2rem;
+    }
+    header h1 { font-size: 1.8rem; margin-bottom: 0.5rem; }
+    header p { opacity: 0.9; font-size: 0.95rem; }
+    .content { padding: 2rem; }
+    section { margin-bottom: 2rem; }
+    h2 {
+      color: #4f46e5;
+      font-size: 1.2rem;
+      margin-bottom: 1rem;
+      padding-bottom: 0.5rem;
+      border-bottom: 2px solid #e0e7ff;
+    }
+    h3 { color: #555; font-size: 1rem; margin: 1.2rem 0 0.5rem; font-weight: 600; }
+    p { margin-bottom: 0.8rem; }
+    code {
+      background: #f4f4f5;
+      padding: 0.15rem 0.4rem;
+      border-radius: 4px;
+      font-family: "SF Mono", Monaco, Consolas, "Liberation Mono", monospace;
+      font-size: 0.88em;
+      color: #be185d;
+    }
+    pre {
+      background: #1e1e2e;
+      color: #cdd6f4;
+      padding: 1.2rem;
+      border-radius: 8px;
+      overflow-x: auto;
+      margin: 1rem 0;
+      font-family: "SF Mono", Monaco, Consolas, monospace;
+      font-size: 0.88rem;
+      line-height: 1.6;
+    }
+    pre code { background: none; padding: 0; color: inherit; font-size: inherit; }
+    .comment { color: #6a9955; }
+    .keyword { color: #569cd6; }
+    .string { color: #ce9178; }
+    .command { color: #89dceb; }
+    .output { color: #a6e3a1; }
+    .warning {
+      background: #fffbeb;
+      border-left: 4px solid #f59e0b;
+      padding: 1rem;
+      margin: 1rem 0;
+      border-radius: 6px;
+    }
+    .success {
+      background: #f0fdf4;
+      border-left: 4px solid #22c55e;
+      padding: 1rem;
+      margin: 1rem 0;
+      border-radius: 6px;
+    }
+    .info {
+      background: #eff6ff;
+      border-left: 4px solid #3b82f6;
+      padding: 1rem;
+      margin: 1rem 0;
+      border-radius: 6px;
+    }
+    ol, ul { margin: 0.8rem 0; padding-left: 1.5rem; }
+    li { margin-bottom: 0.4rem; }
+    table { width: 100%; border-collapse: collapse; margin: 1rem 0; font-size: 0.9rem; }
+    th, td { border: 1px solid #e5e7eb; padding: 0.7rem; text-align: left; }
+    th { background: #f9fafb; font-weight: 600; }
+    tr:nth-child(even) td { background: #fafafa; }
+    .file-tree {
+      background: #fafafa;
+      border: 1px solid #e5e7eb;
+      border-radius: 8px;
+      padding: 1rem;
+      font-family: monospace;
+      font-size: 0.85rem;
+      line-height: 1.8;
+    }
+    .folder { color: #7c3aed; }
+    .file { color: #374151; }
+    .tag {
+      display: inline-block;
+      background: #e0e7ff;
+      color: #4338ca;
+      padding: 0.1rem 0.5rem;
+      border-radius: 4px;
+      font-size: 0.8rem;
+      margin-right: 0.3rem;
+    }
+    footer {
+      background: #f9fafb;
+      padding: 1.5rem 2rem;
+      text-align: center;
+      color: #6b7280;
+      font-size: 0.85rem;
+      border-top: 1px solid #e5e7eb;
+    }
+    footer a { color: #4f46e5; text-decoration: none; }
+    footer a:hover { text-decoration: underline; }
+    hr { border: none; border-top: 1px solid #e5e7eb; margin: 1.5rem 0; }
+    .step-number {
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      width: 28px;
+      height: 28px;
+      background: #4f46e5;
+      color: white;
+      border-radius: 50%;
+      font-size: 0.85rem;
+      font-weight: bold;
+      margin-right: 0.5rem;
+      flex-shrink: 0;
+    }
+    .step-title { display: flex; align-items: center; margin-bottom: 0.8rem; font-size: 1.05rem; font-weight: 600; color: #4f46e5; }
+  </style>
+</head>
+<body>
+  <div class="container">
+    <header>
+      <h1>FCMSafety fcmsafety-v2 开发指南</h1>
+      <p>食品接触材料安全评估 R 包 · fcmsafety-v2 分支实习生操作手册</p>
+    </header>
+
+    <div class="content">
+
+      <!-- 第一部分：账号准备 -->
+      <section>
+        <h2>第一步：账号与权限准备</h2>
+
+        <div class="info">
+          <strong>重要：</strong>GitHub 仓库对没有协作者权限的账号默认是只读的。实习生需要先 Fork 自己的副本才能推送。
+        </div>
+
+        <h3>1.1 注册 GitHub 账号</h3>
+        <ol>
+          <li>打开 <a href="https://github.com" target="_blank">https://github.com</a></li>
+          <li>点击 <strong>Sign up</strong>，按提示填写用户名、邮箱、密码</li>
+          <li>验证邮箱后即可使用</li>
+        </ol>
+
+        <h3>1.2 Fork 仓库到自己的账号</h3>
+        <ol>
+          <li>打开仓库链接：<a href="https://github.com/QizhiSu/fcmsafety" target="_blank">https://github.com/QizhiSu/fcmsafety</a></li>
+          <li>在页面右上角点击 <strong> Fork </strong> 按钮</li>
+          <li>等待几秒，页面会跳转到「你的账号/fcmsafety」</li>
+          <li>此时你拥有了自己的可读写副本</li>
+        </ol>
+
+        <div class="success">
+          <strong>✅ Fork 完成后，你的仓库地址类似：</strong><br>
+          <code>https://github.com/你的用户名/fcmsafety</code>
+        </div>
+      </section>
+
+      <hr>
+
+      <!-- 第二部分：克隆与切换分支 -->
+      <section>
+        <h2>第二步：克隆项目并切换分支</h2>
+
+        <h3>2.1 克隆到本地</h3>
+        <p>打开终端（Mac 打开「终端」应用，Windows 可用 Git Bash 或 PowerShell），运行：</p>
+        <pre><code><span class="comment"># 用你自己的 Fork 地址替换下面的 URL</span>
+<span class="command">git</span> clone https://github.com/<span class="string">你的GitHub用户名</span>/fcmsafety.git</code></pre>
+
+        <p>例如：</p>
+        <pre><code><span class="command">git</span> clone https://github.com/zhangsan/fcmsafety.git</code></pre>
+
+        <h3>2.2 进入项目目录</h3>
+        <pre><code><span class="command">cd</span> fcmsafety</code></pre>
+
+        <h3>2.3 切换到 fcmsafety-v2 分支</h3>
+        <pre><code><span class="command">git</span> checkout fcmsafety-v2</code></pre>
+
+        <h3>2.4 验证当前分支</h3>
+        <pre><code><span class="command">git</span> branch -v
+
+<span class="output">* fcmsafety-v2  e5b2e6d Add regulatory group matching section to handoff docs</span>
+  main          014f3d8 relocate toxic information columns</code></pre>
+
+        <div class="success">
+          看到 <code>* fcmsafety-v2</code> 前面的星号，说明当前已在正确分支上。
+        </div>
+      </section>
+
+      <hr>
+
+      <!-- 第三部分：配置 SSH（可选，推荐） -->
+      <section>
+        <h2>第三步：配置 SSH（推荐，可跳过）</h2>
+        <p>配置 SSH 后每次推送不需要输入用户名和密码。注意：如果使用 HTTPS 克隆，可以跳过这一步。</p>
+
+        <h3>3.1 检查是否有 SSH Key</h3>
+        <pre><code><span class="command">cat</span> ~/.ssh/id_ed25519.pub 2>/dev/null || <span class="command">cat</span> ~/.ssh/id_rsa.pub 2>/dev/null || <span class="command">echo</span> <span class="string">"NO_KEY"</span></code></pre>
+
+        <h3>3.2 如果没有，生成新 Key</h3>
+        <pre><code><span class="command">ssh-keygen</span> -t ed25519 -C <span class="string">"your_email@example.com"</span> -f ~/.ssh/id_ed25519 -N <span class="string">""</span></code></pre>
+
+        <h3>3.3 复制公钥到 GitHub</h3>
+        <pre><code><span class="command">cat</span> ~/.ssh/id_ed25519.pub</code></pre>
+        <p>复制输出的内容，进入 GitHub → 右上角头像 → <strong>Settings</strong> → <strong>SSH and GPG keys</strong> → 点击 <strong>New SSH key</strong>，粘贴公钥。</p>
+
+        <h3>3.4 修改 remote 为 SSH 地址（可选）</h3>
+        <pre><code><span class="command">git</span> remote set-url origin git@github.com:<span class="string">你的用户名</span>/fcmsafety.git</code></pre>
+      </section>
+
+      <hr>
+
+      <!-- 第四部分：环境配置 -->
+      <section>
+        <h2>第四步：配置本地开发环境</h2>
+
+        <h3>4.1 安装 R</h3>
+        <ol>
+          <li>访问 <a href="https://cran.r-project.org/" target="_blank">https://cran.r-project.org/</a></li>
+          <li>选择适合你系统的版本下载并安装</li>
+        </ol>
+
+        <h3>4.2 安装 RStudio（推荐）</h3>
+        <ol>
+          <li>访问 <a href="https://posit.co/download/rstudio-desktop/" target="_blank">https://posit.co/download/rstudio-desktop/</a></li>
+          <li>下载并安装 RStudio Desktop</li>
+        </ol>
+
+        <h3>4.3 在 RStudio 中打开项目</h3>
+        <ol>
+          <li>RStudio → <code>File</code> → <code>Open Project</code></li>
+          <li>选择项目目录中的 <code>fcmsafety.Rproj</code></li>
+        </ol>
+
+        <h3>4.4 安装 R 包依赖</h3>
+        <p>在 RStudio 的 Console 中运行：</p>
+        <pre><code><span class="comment"># 安装 devtools（如果提示没有安装）</span>
+<span class="keyword">install.packages</span>(<span class="string">"devtools"</span>)
+
+<span class="comment"># 安装 fcmsafety 的所有依赖</span>
+<span class="keyword">devtools::install_deps</span>()</code></pre>
+
+        <div class="warning">
+          <strong>⚠️ 安装依赖可能需要几分钟，请耐心等待。如果遇到报错，检查 R 版本是否太旧。</strong>
+        </div>
+
+        <h3>4.5 安装 Java（用于 Toxtree）</h3>
+        <p>Toxtree 需要 Java 环境。macOS 用户运行：</p>
+        <pre><code><span class="command">java</span> -version</code></pre>
+        <p>如果没有输出或报错，从 <a href="https://www.java.com/download/" target="_blank">java.com</a> 下载安装 Java。</p>
+      </section>
+
+      <hr>
+
+      <!-- 第五部分：日常开发流程 -->
+      <section>
+        <h2>第五步：日常开发流程</h2>
+
+        <h3>5.1 开始工作前：拉取最新代码</h3>
+        <pre><code><span class="command">git</span> checkout fcmsafety-v2
+<span class="command">git</span> pull origin fcmsafety-v2</code></pre>
+
+        <h3>5.2 创建自己的功能分支（推荐）</h3>
+        <p>不要直接在 <code>fcmsafety-v2</code> 上开发，建议创建功能分支：</p>
+        <pre><code><span class="comment"># 从 fcmsafety-v2 创建新分支</span>
+<span class="command">git</span> checkout -b feature/你的功能名
+
+<span class="comment"># 例如：添加一个新函数</span>
+<span class="command">git</span> checkout -b feature/add-china-sml-updater
+
+<span class="comment"># 或修复一个问题</span>
+<span class="command">git</span> checkout -b fix/update-history-query</code></pre>
+
+        <h3>5.3 修改代码</h3>
+        <p>在 RStudio 中编辑 <code>R/</code> 目录下的文件，或修改文档。</p>
+
+        <h3>5.4 查看修改内容</h3>
+        <pre><code><span class="comment"># 查看哪些文件被修改了</span>
+<span class="command">git</span> status
+
+<span class="comment"># 查看具体改动（推荐先看这个）</span>
+<span class="command">git</span> diff</code></pre>
+
+        <h3>5.5 提交修改</h3>
+        <pre><code><span class="comment"># 添加要提交的文件（. 表示所有修改）</span>
+<span class="command">git</span> add .
+
+<span class="comment"># 提交，写清楚改动内容</span>
+<span class="command">git</span> commit -m <span class="string">"Add function: update_china_sml()"</span>
+
+<span class="comment"># 或者更规范的格式：</span>
+<span class="command">git</span> commit -m <span class="string">"feat: add China SML update function"</span></code></pre>
+
+        <div class="info">
+          <strong>提交信息规范建议：</strong>
+          <ul>
+            <li><code>feat:</code> 新功能</li>
+            <li><code>fix:</code> 修复 bug</li>
+            <li><code>docs:</code> 文档修改</li>
+            <li><code>refactor:</code> 重构（不改变功能）</li>
+            <li><code>chore:</code> 杂项（构建脚本、依赖更新等）</li>
+          </ul>
+        </div>
+
+        <h3>5.6 推送到自己的 Fork</h3>
+        <pre><code><span class="comment"># 第一次推送功能分支</span>
+<span class="command">git</span> push -u origin feature/你的功能名
+
+<span class="comment"># 之后的推送</span>
+<span class="command">git</span> push</code></pre>
+
+        <h3>5.7 在 GitHub 上创建 Pull Request</h3>
+        <ol>
+          <li>打开你的 Fork 仓库页面（如 <code>https://github.com/zhangsan/fcmsafety</code>）</li>
+          <li>会自动提示「Compare & pull request」或点击 <strong>Compare across forks</strong></li>
+          <li>确认：
+            <ul>
+              <li><strong>base repository:</strong> <code>QizhiSu/fcmsafety</code></li>
+              <li><strong>base:</strong> <code>fcmsafety-v2</code></li>
+              <li><strong>head repository:</strong> <code>你的用户名/fcmsafety</code></li>
+              <li><strong>compare:</strong> <code>feature/你的功能名</code></li>
+            </ul>
+          </li>
+          <li>填写 PR 标题和说明，点击 <strong>Create pull request</strong></li>
+        </ol>
+      </section>
+
+      <hr>
+
+      <!-- 第六部分：同步上游更新 -->
+      <section>
+        <h2>第六步：同步上游最新更新</h2>
+
+        <p>在开发过程中，原仓库（QizhiSu/fcmsafety）可能有新提交。需要定期同步：</p>
+
+        <h3>6.1 添加上游仓库地址</h3>
+        <pre><code><span class="comment"># 添加上游仓库（只需做一次）</span>
+<span class="command">git</span> remote add upstream https://github.com/QizhiSu/fcmsafety.git
+
+<span class="comment"># 验证</span>
+<span class="command">git</span> remote -v
+<span class="output">origin    https://github.com/你的用户名/fcmsafety.git (fetch)
+origin    https://github.com/你的用户名/fcmsafety.git (push)
+upstream  https://github.com/QizhiSu/fcmsafety.git (fetch)
+upstream  https://github.com/QizhiSu/fcmsafety.git (push)</span></code></pre>
+
+        <h3>6.2 拉取上游 fcmsafety-v2 的最新代码</h3>
+        <pre><code><span class="comment"># 切换到 fcmsafety-v2</span>
+<span class="command">git</span> checkout fcmsafety-v2
+
+<span class="comment"># 拉取上游更新并合并</span>
+<span class="command">git</span> fetch upstream
+<span class="command">git</span> merge upstream/fcmsafety-v2
+
+<span class="comment"># 如果有冲突，手动解决后再 commit</span>
+<span class="command">git</span> add .
+<span class="command">git</span> commit -m <span class="string">"Merge upstream fcmsafety-v2"</span></code></pre>
+
+        <h3>6.3 把同步后的更新推送到自己的 Fork</h3>
+        <pre><code><span class="command">git</span> push origin fcmsafety-v2</code></pre>
+
+        <h3>6.4 更新功能分支（如果有未完成的开发）</h3>
+        <pre><code><span class="command">git</span> checkout feature/你的功能名
+<span class="command">git</span> rebase fcmsafety-v2</code></pre>
+
+        <div class="warning">
+          <strong>⚠️ rebase 会改变提交历史。如果你的功能分支已经推送到远程并有人查看过，不要 rebase。</strong>
+        </div>
+      </section>
+
+      <hr>
+
+      <!-- 第七部分：常用命令速查 -->
+      <section>
+        <h2>第七步：常用 Git 命令速查</h2>
+
+        <table>
+          <tr><th>场景</th><th>命令</th></tr>
+          <tr><td>查看当前状态</td><td><code>git status</code></td></tr>
+          <tr><td>查看所有分支</td><td><code>git branch -a</code></td></tr>
+          <tr><td>切换分支</td><td><code>git checkout 分支名</code></td></tr>
+          <tr><td>创建并切换新分支</td><td><code>git checkout -b 新分支名</code></td></tr>
+          <tr><td>查看远程地址</td><td><code>git remote -v</code></td></tr>
+          <tr><td>查看提交历史</td><td><code>git log --oneline</code></td></tr>
+          <tr><td>查看未暂存的改动</td><td><code>git diff</code></td></tr>
+          <tr><td>查看已暂存的改动</td><td><code>git diff --cached</code></td></tr>
+          <tr><td>暂存所有改动</td><td><code>git add .</code></td></tr>
+          <tr><td>提交</td><td><code>git commit -m "说明"</code></td></tr>
+          <tr><td>拉取并合并</td><td><code>git pull</code></td></tr>
+          <tr><td>推送到远程</td><td><code>git push</code></td></tr>
+          <tr><td>撤销未提交的改动</td><td><code>git checkout -- .</code></td></tr>
+          <tr><td>查看当前在哪台设备</td><td><code>hostname</code></td></tr>
+        </table>
+      </section>
+
+      <hr>
+
+      <!-- 第八部分：R 包开发相关 -->
+      <section>
+        <h2>第八步：R 包开发相关</h2>
+
+        <h3>8.1 检查包是否可以加载</h3>
+        <pre><code><span class="keyword">library</span>(fcmsafety)
+<span class="keyword">fcmsafety_status</span>()</code></pre>
+
+        <h3>8.2 使用 Shiny 数据库浏览器</h3>
+        <pre><code><span class="keyword">library</span>(fcmsafety)
+<span class="keyword">launch_database_inspector</span>()</code></pre>
+
+        <h3>8.3 运行测试</h3>
+        <pre><code><span class="keyword">devtools::test</span>()
+<span class="comment"># 或在 RStudio 中使用 Ctrl/Cmd + Shift + T</span></code></pre>
+
+        <h3>8.4 检查包是否合规</h3>
+        <pre><code><span class="keyword">devtools::check</span>()
+<span class="comment"># 或在 RStudio 中使用 Ctrl/Cmd + Shift + E</span></code></pre>
+
+        <h3>8.5 重新生成文档</h3>
+        <pre><code><span class="keyword">devtools::document</span>()
+<span class="comment"># 或 Ctrl/Cmd + Shift + D</span></code></pre>
+
+        <h3>8.6 调试 assign_toxicity 函数</h3>
+        <pre><code><span class="comment"># 使用示例数据进行测试</span>
+<span class="keyword">library</span>(fcmsafety)
+
+<span class="comment"># 准备测试数据</span>
+test_data <span class="keyword"><- data.frame</span>(
+  CAS = <span class="keyword">c</span>(<span class="string">"115-86-6"</span>, <span class="string">"50-00-0"</span>),
+  Name = <span class="keyword">c</span>(<span class="string">"Triphenyl phosphate"</span>, <span class="string">"Formaldehyde"</span>),
+  SMILES = <span class="keyword">c</span>(<span class="string">"CC(C)(C)C1=C(C=CC(=C1)OC)O"</span>, <span class="string">"C=O"</span>),
+  stringsAsFactors = <span class="keyword">FALSE</span>
+)
+
+<span class="comment"># 运行毒性评估</span>
+result <span class="keyword"><- assign_toxicity</span>(test_data)
+<span class="keyword">print</span>(result)</code></pre>
+
+        <h3>8.7 数据库状态检查</h3>
+        <pre><code><span class="keyword">fcmsafety_status</span>()        <span class="comment"># 快速状态</span>
+<span class="keyword">check_database_status</span>()   <span class="comment"># 详细状态</span>
+<span class="keyword">display_update_history</span>()  <span class="comment"># 更新历史</span></code></pre>
+      </section>
+
+      <hr>
+
+      <!-- 第九部分：文件结构 -->
+      <section>
+        <h2>第九步：项目文件结构</h2>
+
+        <div class="file-tree">
+<span class="folder">fcmsafety/</span>
+├── <span class="file">fcmsafety.Rproj</span>          <span class="comment">← RStudio 项目文件，双击打开项目</span>
+├── <span class="folder">R/</span>                          <span class="comment">← R 函数源代码</span>
+│   ├── assign_toxicity.R        <span class="comment">核心毒性评估函数</span>
+│   ├── databases.R              <span class="comment">数据库更新函数</span>
+│   ├── direct_sql_toxicity.R   <span class="comment">SQLite 直接查询实现</span>
+│   ├── sqlite_database_manager.R <span class="comment">SQLite 数据库管理</span>
+│   └── ...
+├── <span class="folder">inst/</span>
+│   └── fcmsafety.db            <span class="comment">SQLite 数据库文件</span>
+├── <span class="folder">database_backup/</span>            <span class="comment">备份的旧版 xlsx 数据</span>
+├── <span class="folder">man/</span>                        <span class="comment">R 文档（自动生成）</span>
+├── <span class="folder">tests/</span>                      <span class="comment">测试文件</span>
+├── <span class="file">INTERN_HANDOFF.md</span>          <span class="comment">← 交接文档，必读！</span>
+├── <span class="file">intern-setup-guide.html</span>     <span class="comment">本地配置指南</span>
+├── <span class="file">DESCRIPTION</span>                <span class="comment">包描述和依赖</span>
+├── <span class="file">NAMESPACE</span>                   <span class="comment">导出函数列表（自动生成）</span>
+└── <span class="file">README.md</span>                   <span class="comment">项目说明</span>
+        </div>
+
+        <div class="success">
+          <strong>📖 首先阅读：</strong>打开 <code>INTERN_HANDOFF.md</code>，这是项目的核心交接文档，包含了数据源说明、更新流程、测试用例等所有重要信息。
+        </div>
+      </section>
+
+      <hr>
+
+      <!-- 第十部分：遇到问题怎么办 -->
+      <section>
+        <h2>第十步：遇到问题怎么办</h2>
+
+        <h3>10.1 Git 相关问题</h3>
+
+        <table>
+          <tr><th>问题</th><th>解决方法</th></tr>
+          <tr>
+            <td>merge conflict（合并冲突）</td>
+            <td>打开冲突文件，搜索 <code>&lt;&lt;&lt;&lt;&lt;&lt;&lt;</code>，保留想要的代码，删除冲突标记，然后 <code>git add . && git commit</code></td>
+          </tr>
+          <tr>
+            <td>误删文件想恢复</td>
+            <td><code>git checkout HEAD -- 文件名</code></td>
+          </tr>
+          <tr>
+            <td>想撤销上一次 commit</td>
+            <td><code>git reset --soft HEAD~1</code>（保留改动）或 <code>git reset --hard HEAD~1</code>（完全撤销）</td>
+          </tr>
+          <tr>
+            <td>不知道当前在哪个分支</td>
+            <td><code>git branch</code> 或看 RStudio 右下角</td>
+          </tr>
+          <tr>
+            <td>push 被拒绝（远程有新提交）</td>
+            <td>先 <code>git pull --rebase</code>，解决冲突后再 <code>git push</code></td>
+          </tr>
+        </table>
+
+        <h3>10.2 R 包相关问题</h3>
+
+        <table>
+          <tr><th>问题</th><th>解决方法</th></tr>
+          <tr>
+            <td>包加载失败，提示缺少某个包</td>
+            <td><code>install.packages("包名")</code></td>
+          </tr>
+          <tr>
+            <td>包行为异常</td>
+            <td>先 <code>devtools::document()</code> 重新生成文档，再 <code>devtools::load_all()</code></td>
+          </tr>
+          <tr>
+            <td>数据库打不开</td>
+            <td>检查 <code>inst/fcmsafety.db</code> 是否存在，运行 <code>initialize_database()</code> 重新初始化</td>
+          </tr>
+          <tr>
+            <td>测试不通过</td>
+            <td>运行 <code>devtools::test(reporter = "verbose")</code> 查看详细错误信息</td>
+          </tr>
+        </table>
+
+        <h3>10.3 求助方式</h3>
+        <ol>
+          <li>先自己搜索错误信息（复制错误信息的关键词）</li>
+          <li>查看 <code>INTERN_HANDOFF.md</code> 中是否有相关说明</li>
+          <li>在 GitHub 上提交 Issue 描述问题，附上错误信息和你的操作步骤</li>
+          <li>如果是在职人员，可以联系项目维护者</li>
+        </ol>
+      </section>
+
+    </div>
+
+    <footer>
+      <p>FCMSafety 食品接触材料安全评估 R 包 | <a href="https://github.com/QizhiSu/fcmsafety/tree/fcmsafety-v2">GitHub fcmsafety-v2 分支</a></p>
+    </footer>
+  </div>
+</body>
+</html>
