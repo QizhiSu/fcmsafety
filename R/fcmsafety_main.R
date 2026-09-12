@@ -1,8 +1,59 @@
-#' FCMSafety Main Integration Functions
-#'
-#' This module provides the main user-facing functions that integrate all
-#' components of the enhanced FCMSafety system, including SQLite database
-#' management, intelligent updates, and comprehensive audit trails.
+# =============================================================================
+# 包的主入口（面向用户的一层）：建库 / 状态 / 更新 / 体检
+#
+# 本文件是用户"第一次上手"和"日常巡检"会碰到的函数，全部 @export：
+#   setup_fcmsafety_database()    一次性建库 + 从 xlsx 迁移（新装机器第一步跑它）
+#   fcmsafety_status()            看一眼数据库现在有什么、最近更新过什么
+#   validate_database_integrity() 体检：表是否存在、行数是否合理、外键是否断链
+#
+# 内部辅助（不导出）：
+#   display_database_summary()    控制台打印状态摘要
+#   backup_xlsx_files()           迁移前把 inst/ 下的 xlsx 备份走
+#
+# 边界：本文件只做"调度与展示"。真正落库的逻辑在
+# sqlite_database_manager.R（建表/迁移/连接），增量比对在
+# incremental_update.R，各法规源的抓取在 update_other_dbs.R 与
+# auto_update_svhc.R。想改数据怎么进来，别在这个文件里找。
+#
+# 注意：文件头说明用普通注释（而非 roxygen #'），否则会被 roxygen2
+# 误配给其后第一个函数而抢占它的文档 title。
+# =============================================================================
+
+# ---- 内部：控制台打印状态摘要 -----------------------------------------------
+
+# 内部函数：打印数据库状态摘要（原旧线 enhanced_update_system.R 中
+# display_database_summary() 的打印逻辑，随旧线退役后保留为内部工具，
+# 供 setup_fcmsafety_database() 与 fcmsafety_status() 使用）。
+# 输入 status 来自 check_database_status()。
+display_database_summary <- function(status) {
+  message("\n📊 Current Database Status:")
+  message("   Database location: ", basename(status$database_path))
+  message("   Total chemicals: ", status$total_chemicals)
+  message("")
+
+  if (nrow(status$metadata) > 0) {
+    message("📋 Database Records:")
+    for (i in 1:nrow(status$metadata)) {
+      db <- status$metadata[i, ]
+      last_update <- if (is.na(db$last_updated)) "Never" else format(as.POSIXct(db$last_updated), "%Y-%m-%d %H:%M")
+      message(sprintf("   %-12s: %5d records (Last updated: %s)",
+                     toupper(db$database_name), db$total_records, last_update))
+    }
+  }
+
+  if (nrow(status$recent_updates) > 0) {
+    message("\n📈 Recent Update Activity:")
+    for (i in 1:min(3, nrow(status$recent_updates))) {
+      update <- status$recent_updates[i, ]
+      timestamp <- format(as.POSIXct(update$update_timestamp), "%Y-%m-%d %H:%M")
+      message(sprintf("   %s: %s (%+d records) - %s",
+                     timestamp, toupper(update$database_name),
+                     update$records_added - update$records_removed, update$update_type))
+    }
+  }
+}
+
+# ---- 主入口：建库 / 状态（@export，用户直接调） ------------------------------
 
 #' Setup FCMSafety Database System
 #'
@@ -14,6 +65,7 @@
 #' @param backup_xlsx Logical, whether to backup existing xlsx files
 #' @return Logical indicating success
 #' @export
+#' @encoding UTF-8
 setup_fcmsafety_database <- function(force_reinit = FALSE, backup_xlsx = TRUE) {
   message("🚀 Setting up FCMSafety SQLite Database System")
   message(paste(rep("=", 60), collapse = ""))
@@ -54,81 +106,22 @@ setup_fcmsafety_database <- function(force_reinit = FALSE, backup_xlsx = TRUE) {
 
     message("\n🎉 FCMSafety SQLite setup completed successfully!")
     message("💡 Next steps:")
-    message("   • Use load_databases() to load data (now uses SQLite by default)")
-    message("   • Use update_databases_interactive() for intelligent updates")
+    message("   • Use assign_toxicity() to screen chemicals against the databases")
+    message("   • Use update_database_auto() for one-click database updates")
     message("   • Use get_update_history() to view change history")
 
     return(TRUE)
 
   }, error = function(e) {
     message("❌ Setup failed: ", e$message)
-    message("💡 You can still use the original xlsx system with load_databases(use_sqlite = FALSE)")
+    message("💡 Fix the reported issue and rerun, or check inst/ for source files")
     return(FALSE)
   })
 }
 
-#' Enhanced Assign Toxicity with Auto-Update Check
-#'
-#' Enhanced version of assign_toxicity that automatically checks for database
-#' updates before processing, ensuring users always work with the latest data.
-#'
-#' @param data Input data frame with chemical identifiers
-#' @param output_file Output file path for results
-#' @param check_updates Logical, whether to check for available updates
-#' @param auto_update Logical, whether to automatically apply available updates
-#' @param ... Additional arguments passed to original assign_toxicity function
-#' @return Results from assign_toxicity function
-#' @export
-assign_toxicity_enhanced <- function(data, output_file, check_updates = TRUE, auto_update = FALSE, ...) {
-  message("🧪 Enhanced Toxicity Assignment with Update Checking")
-  message(paste(rep("=", 60), collapse = ""))
-
-  # Check for updates if requested
-  if (check_updates) {
-    message("🔍 Checking for database updates...")
-
-    update_info <- check_available_updates(c("svhc", "cmr", "iarc", "eu_sml"))
-
-    if (length(update_info$available) > 0) {
-      message("🆕 Updates available for: ", paste(update_info$available, collapse = ", "))
-
-      if (auto_update) {
-        message("🔄 Auto-updating databases...")
-        update_result <- update_databases_interactive(
-          databases = update_info$available,
-          interactive = FALSE,
-          auto_update = TRUE
-        )
-
-        if (update_result$success) {
-          message("✅ Databases updated successfully")
-          # Reload databases with fresh data
-          load_databases()
-        } else {
-          message("⚠️  Some updates failed, proceeding with current data")
-        }
-      } else {
-        message("💡 Run update_databases_interactive() to apply updates")
-        message("💡 Or use auto_update = TRUE to update automatically")
-      }
-    } else {
-      message("✅ All databases are up to date")
-    }
-  }
-
-  # Ensure databases are loaded
-  if (!exists("svhc", envir = .GlobalEnv)) {
-    message("📊 Loading databases...")
-    load_databases()
-  }
-
-  # Call original assign_toxicity function
-  message("🔬 Performing toxicity assignment...")
-  result <- assign_toxicity(data, output_file, ...)
-
-  message("✅ Toxicity assignment completed!")
-  return(result)
-}
+# assign_toxicity_enhanced() 已于 2026-09-09 删除：其"保存结果到 CSV"功能已
+# 合并进 assign_toxicity()（新增 output_file 参数）；"默认 check_updates = TRUE"
+# 属有意不合并的行为（基础版应保持确定性、默认不查更新）。见 R/direct_sql_toxicity.R。
 
 #' Quick Database Status Check
 #'
@@ -138,6 +131,7 @@ assign_toxicity_enhanced <- function(data, output_file, check_updates = TRUE, au
 #' @param show_recent_activity Logical, whether to show recent update activity
 #' @return Invisible status object
 #' @export
+#' @encoding UTF-8
 fcmsafety_status <- function(show_recent_activity = TRUE) {
   message("📊 FCMSafety Database System Status")
   message(paste(rep("=", 50), collapse = ""))
@@ -148,7 +142,6 @@ fcmsafety_status <- function(show_recent_activity = TRUE) {
   if (!status$initialized) {
     message("❌ SQLite database not initialized")
     message("💡 Run setup_fcmsafety_database() to initialize")
-    message("💡 Or use load_databases(use_sqlite = FALSE) for xlsx mode")
     return(invisible(status))
   }
 
@@ -163,25 +156,21 @@ fcmsafety_status <- function(show_recent_activity = TRUE) {
     message("   Most active database: ", names(sort(table(status$recent_updates$database_name), decreasing = TRUE))[1])
   }
 
-  # Check for available updates
-  message("\n🔍 Checking for available updates...")
-  update_info <- check_available_updates(c("svhc", "cmr", "iarc", "eu_sml"))
-
-  if (length(update_info$available) > 0) {
-    message("🆕 Updates available for: ", paste(update_info$available, collapse = ", "))
-    message("💡 Run update_databases_interactive() to apply updates")
-  } else {
-    message("✅ All databases are up to date")
-  }
+  # 检测人工放入的新清单（旧线 check_available_updates() 已随旧线删除，
+  # 由 check_manual_lists() 取代；此处只报告不询问）
+  message("\n🔍 Checking for manually added list files...")
+  check_manual_lists(ask = FALSE)
 
   message("\n💡 Available commands:")
-  message("   • load_databases() - Load databases into memory")
-  message("   • update_databases_interactive() - Interactive update workflow")
+  message("   • assign_toxicity() - Screen chemicals against regulatory databases")
+  message("   • update_database_auto() - One-click update of all databases")
   message("   • get_update_history() - View change history")
   message("   • get_database_statistics() - Detailed statistics")
 
   return(invisible(status))
 }
+
+# ---- 内部：迁移前备份 inst/ 下的 xlsx ---------------------------------------
 
 #' Backup XLSX Files
 #'
@@ -189,6 +178,7 @@ fcmsafety_status <- function(show_recent_activity = TRUE) {
 #'
 #' @param backup_dir Directory to store backups (default: inst/backups/)
 #' @return Logical indicating success
+#' @encoding UTF-8
 backup_xlsx_files <- function(backup_dir = NULL) {
   if (is.null(backup_dir)) {
     backup_dir <- file.path(getwd(), "inst", "backups")
@@ -198,10 +188,11 @@ backup_xlsx_files <- function(backup_dir = NULL) {
     dir.create(backup_dir, recursive = TRUE)
   }
 
-  # List of xlsx files to backup
+  # List of xlsx files to backup (matches actual inst/ file names)
   xlsx_files <- c(
-    "svhc.xlsx", "cmr.xlsx", "suspect_cmr.xlsx", "iarc.xlsx",
-    "eu10_2011.xlsx", "eu10_2011_group.xlsx", "edc.xlsx", "china_sml_cleaned.xlsx"
+    "svhc_meta.xlsx", "clp_cmr_meta.xlsx", "iarc_meta.xlsx",
+    "eu10_2011_meta.xlsx", "eu10_2011.xlsx", "edc_meta.xlsx",
+    "china_sml_meta_cleaned.xlsx", "china_sml_meta.xlsx"
   )
 
   timestamp <- format(Sys.time(), "%Y%m%d_%H%M%S")
@@ -228,37 +219,7 @@ backup_xlsx_files <- function(backup_dir = NULL) {
   }
 }
 
-#' Reset to XLSX Mode
-#'
-#' Utility function to temporarily or permanently switch back to xlsx-based
-#' database loading, useful for troubleshooting or compatibility testing.
-#'
-#' @param permanent Logical, whether to make the change permanent for the session
-#' @export
-use_xlsx_mode <- function(permanent = FALSE) {
-  message("🔄 Switching to XLSX mode...")
-
-  # Clear existing data
-  if (exists("svhc", envir = .GlobalEnv)) rm(svhc, envir = .GlobalEnv)
-  if (exists("cmr", envir = .GlobalEnv)) rm(cmr, envir = .GlobalEnv)
-  if (exists("cmr_suspect", envir = .GlobalEnv)) rm(cmr_suspect, envir = .GlobalEnv)
-  if (exists("iarc", envir = .GlobalEnv)) rm(iarc, envir = .GlobalEnv)
-  if (exists("eu_sml", envir = .GlobalEnv)) rm(eu_sml, envir = .GlobalEnv)
-  if (exists("eu_sml_group", envir = .GlobalEnv)) rm(eu_sml_group, envir = .GlobalEnv)
-  if (exists("edc", envir = .GlobalEnv)) rm(edc, envir = .GlobalEnv)
-  if (exists("china_sml", envir = .GlobalEnv)) rm(china_sml, envir = .GlobalEnv)
-
-  # Load using xlsx mode
-  load_databases(use_sqlite = FALSE)
-
-  if (permanent) {
-    message("⚠️  XLSX mode enabled for this session")
-    message("💡 Use load_databases(use_sqlite = TRUE) to switch back to SQLite")
-  } else {
-    message("✅ Loaded databases from XLSX files")
-    message("💡 Next load_databases() call will use SQLite again (if available)")
-  }
-}
+# ---- 体检：结构完整性校验（@export） ----------------------------------------
 
 #' Validate Database Integrity
 #'
@@ -266,9 +227,11 @@ use_xlsx_mode <- function(permanent = FALSE) {
 #' data consistency, missing records, and potential issues.
 #'
 #' @param fix_issues Logical, whether to attempt automatic fixes
+#' @param db_path Optional custom path to database file (for testing)
 #' @return List with validation results
 #' @export
-validate_database_integrity <- function(fix_issues = FALSE) {
+#' @encoding UTF-8
+validate_database_integrity <- function(fix_issues = FALSE, db_path = NULL) {
   message("🔍 Validating database integrity...")
 
   validation_results <- list(
@@ -278,7 +241,7 @@ validate_database_integrity <- function(fix_issues = FALSE) {
   )
 
   tryCatch({
-    con <- get_db_connection()
+    con <- get_db_connection(db_path)
     on.exit(DBI::dbDisconnect(con))
 
     # Check 1: Verify all tables exist
@@ -302,6 +265,10 @@ validate_database_integrity <- function(fix_issues = FALSE) {
 
     # Check for orphaned records in regulatory tables
     for (table in c("svhc", "cmr", "cmr_suspect", "iarc", "eu_sml", "eu_sml_group", "edc")) {
+      if (!DBI::dbExistsTable(con, table)) {
+        message("   ℹ️  Table ", table, " missing - skipping orphan check")
+        next
+      }
       orphan_query <- paste0("
         SELECT COUNT(*) as orphan_count
         FROM ", table, " t
@@ -327,42 +294,50 @@ validate_database_integrity <- function(fix_issues = FALSE) {
     # Check 3: Verify data consistency
     message("📊 Checking data consistency...")
 
-    # Check for duplicate InChIKeys in chemicals table
-    dup_query <- "SELECT InChIKey, COUNT(*) as count FROM chemicals GROUP BY InChIKey HAVING COUNT(*) > 1"
-    duplicates <- DBI::dbGetQuery(con, dup_query)
+    if (!DBI::dbExistsTable(con, "chemicals")) {
+      message("ℹ️  chemicals table missing - skipping data consistency check")
+    } else {
+      # Check for duplicate InChIKeys in chemicals table
+      dup_query <- "SELECT InChIKey, COUNT(*) as count FROM chemicals GROUP BY InChIKey HAVING COUNT(*) > 1"
+      duplicates <- DBI::dbGetQuery(con, dup_query)
 
-    if (nrow(duplicates) > 0) {
-      validation_results$passed <- FALSE
-      validation_results$issues$duplicate_chemicals <- nrow(duplicates)
-      message("❌ ", nrow(duplicates), " duplicate InChIKeys in chemicals table")
+      if (nrow(duplicates) > 0) {
+        validation_results$passed <- FALSE
+        validation_results$issues$duplicate_chemicals <- nrow(duplicates)
+        message("❌ ", nrow(duplicates), " duplicate InChIKeys in chemicals table")
+      }
     }
 
     # Check 4: Verify metadata consistency
     message("📋 Checking metadata consistency...")
 
-    metadata_query <- "SELECT database_name, total_records FROM database_metadata"
-    metadata <- DBI::dbGetQuery(con, metadata_query)
+    if (!DBI::dbExistsTable(con, "database_metadata")) {
+      message("ℹ️  database_metadata table missing - skipping metadata check")
+    } else {
+      metadata_query <- "SELECT database_name, total_records FROM database_metadata"
+      metadata <- DBI::dbGetQuery(con, metadata_query)
 
-    for (i in 1:nrow(metadata)) {
-      db_name <- metadata$database_name[i]
-      expected_count <- metadata$total_records[i]
+      for (i in 1:nrow(metadata)) {
+        db_name <- metadata$database_name[i]
+        expected_count <- metadata$total_records[i]
 
-      if (DBI::dbExistsTable(con, db_name)) {
-        actual_count <- DBI::dbGetQuery(con, paste("SELECT COUNT(*) as count FROM", db_name))$count[1]
+        if (DBI::dbExistsTable(con, db_name)) {
+          actual_count <- DBI::dbGetQuery(con, paste("SELECT COUNT(*) as count FROM", db_name))$count[1]
 
-        if (actual_count != expected_count) {
-          validation_results$passed <- FALSE
-          validation_results$issues[[paste0(db_name, "_count_mismatch")]] <-
-            list(expected = expected_count, actual = actual_count)
-          message("❌ ", db_name, ": Expected ", expected_count, " records, found ", actual_count)
+          if (actual_count != expected_count) {
+            validation_results$passed <- FALSE
+            validation_results$issues[[paste0(db_name, "_count_mismatch")]] <-
+              list(expected = expected_count, actual = actual_count)
+            message("❌ ", db_name, ": Expected ", expected_count, " records, found ", actual_count)
 
-          if (fix_issues) {
-            # Update metadata
-            DBI::dbExecute(con,
-              "UPDATE database_metadata SET total_records = ? WHERE database_name = ?",
-              params = list(actual_count, db_name))
-            validation_results$fixes_applied[[paste0(db_name, "_count")]] <- TRUE
-            message("🔧 Updated metadata for ", db_name)
+            if (fix_issues) {
+              # Update metadata
+              DBI::dbExecute(con,
+                "UPDATE database_metadata SET total_records = ? WHERE database_name = ?",
+                params = list(actual_count, db_name))
+              validation_results$fixes_applied[[paste0(db_name, "_count")]] <- TRUE
+              message("🔧 Updated metadata for ", db_name)
+            }
           }
         }
       }

@@ -1,3 +1,26 @@
+# =============================================================================
+# 更新账本与审计追踪（谁在什么时候往库里加了什么）
+#
+# 每隔一段时间有人问"这条数据什么时候进来的、跟上次比变了什么"，答案在
+# SQLite 的 update_history 表（每次 update_*_auto() 成功都会写一条），
+# 本文件就是读它、展示它、导出它的那一层。
+#
+# 三层粒度的函数：
+#   一次更新   get_update_history() / display_update_history()
+#              —— 按库名与日期筛，看"哪几次更新、各加了几行"
+#   一条变更   get_detailed_changes() / display_detailed_changes()
+#              —— 下钻到字段级（哪个物质的哪个列从什么变成了什么），
+#                 数据来自 log_change_detail() 在入库时顺手写下的明细
+#   统计概览   get_database_statistics() / display_database_statistics()
+#              —— 近 N 天的更新频次、活跃物质数，用于"最近是不是没人管了"巡检
+#   导出       export_update_history()  把账本写成 csv/xlsx 交差
+#
+# 注意：update_history 表在**迁移前的老库**里可能不存在。读之前一律先
+# dbExistsTable() 判一下并返回空表，不要直接查询——老库上会报错。
+# =============================================================================
+
+# ---- 一次更新：查账 + 展示 --------------------------------------------------
+
 #' Update History and Audit Trail Functions
 #'
 #' This module provides comprehensive audit trail functionality for tracking
@@ -5,30 +28,36 @@
 #' users to understand what changed, when, and provides detailed historical
 #' records for compliance and debugging purposes.
 #'
-#' @importFrom DBI dbConnect dbDisconnect dbGetQuery
-#' @importFrom RSQLite SQLite
-#' @importFrom dplyr filter arrange desc
-
-#' Get Update History
-#'
 #' Retrieves and displays historical update records with filtering options.
 #' This function provides comprehensive visibility into all database changes
 #' over time, supporting compliance and audit requirements.
 #'
+#' @importFrom DBI dbConnect dbDisconnect dbGetQuery
+#' @importFrom RSQLite SQLite
+#' @importFrom dplyr filter arrange desc
 #' @param database_name Optional filter by specific database name
 #' @param date_from Optional start date for filtering (YYYY-MM-DD format)
 #' @param date_to Optional end date for filtering (YYYY-MM-DD format)
 #' @param limit Maximum number of records to return (default: 50)
 #' @param show_details Whether to include detailed change information
+#' @param db_path Optional custom path to database file (for testing)
 #' @return Data frame with update history records
 #' @export
+#' @encoding UTF-8
 get_update_history <- function(database_name = NULL, date_from = NULL, date_to = NULL, 
-                              limit = 50, show_details = TRUE) {
+                              limit = 50, show_details = TRUE, db_path = NULL) {
   message("📚 Retrieving update history...")
   
   tryCatch({
-    con <- get_db_connection()
+    con <- get_db_connection(db_path)
     on.exit(DBI::dbDisconnect(con))
+    
+    # Guard: if update_history table does not exist (e.g. pre-migration db),
+    # return empty data frame instead of crashing
+    if (!DBI::dbExistsTable(con, "update_history")) {
+      message("ℹ️  update_history table not present in this database")
+      return(data.frame())
+    }
     
     # Build query with filters
     query <- "
@@ -106,6 +135,7 @@ get_update_history <- function(database_name = NULL, date_from = NULL, date_to =
 #'
 #' @param history Data frame with update history records
 #' @param show_details Whether to show detailed information
+#' @encoding UTF-8
 display_update_history <- function(history, show_details = TRUE) {
   message("\n📊 UPDATE HISTORY SUMMARY")
   message(paste(rep("=", 70), collapse = ""))
@@ -166,6 +196,8 @@ display_update_history <- function(history, show_details = TRUE) {
   message("📈 Total records shown: ", nrow(history))
 }
 
+# ---- 字段级明细：某次更新具体改了哪个物质的哪一列 ----------------------------
+
 #' Get Detailed Changes
 #'
 #' Retrieves detailed change information for specific update sessions.
@@ -173,6 +205,7 @@ display_update_history <- function(history, show_details = TRUE) {
 #' @param con Database connection
 #' @param update_ids Vector of update history IDs to get details for
 #' @return Data frame with detailed change records
+#' @encoding UTF-8
 get_detailed_changes <- function(con, update_ids) {
   if (length(update_ids) == 0) {
     return(data.frame())
@@ -207,6 +240,7 @@ get_detailed_changes <- function(con, update_ids) {
 #' Formats and displays detailed change information.
 #'
 #' @param changes Data frame with detailed change records
+#' @encoding UTF-8
 display_detailed_changes <- function(changes) {
   if (nrow(changes) == 0) {
     message("📭 No detailed changes available")
@@ -262,19 +296,30 @@ display_detailed_changes <- function(changes) {
   message(paste(rep("=", 70), collapse = ""))
 }
 
+# ---- 统计概览：近 N 天的更新频次与活跃物质（巡检用） --------------------------
+
 #' Get Database Statistics
 #'
 #' Provides comprehensive statistics about database usage, updates, and trends.
 #'
 #' @param days_back Number of days to look back for trend analysis (default: 30)
+#' @param db_path Optional custom path to database file (for testing)
 #' @return List with database statistics
 #' @export
-get_database_statistics <- function(days_back = 30) {
+#' @encoding UTF-8
+get_database_statistics <- function(days_back = 30, db_path = NULL) {
   message("📊 Generating database statistics...")
   
   tryCatch({
-    con <- get_db_connection()
+    con <- get_db_connection(db_path)
     on.exit(DBI::dbDisconnect(con))
+    
+    # Guard: database_metadata / update_history may be missing on pre-migration db
+    if (!DBI::dbExistsTable(con, "database_metadata") || !DBI::dbExistsTable(con, "update_history")) {
+      message("ℹ️  metadata/history tables not present - returning empty statistics")
+      return(list(current_stats = data.frame(), update_frequency = data.frame(),
+                  daily_activity = data.frame(), active_substances = data.frame()))
+    }
     
     # Current database sizes
     current_stats <- DBI::dbGetQuery(con, "
@@ -354,6 +399,7 @@ get_database_statistics <- function(days_back = 30) {
 #' @param daily_activity Daily activity trends
 #' @param active_substances Most frequently changed substances
 #' @param days_back Analysis period in days
+#' @encoding UTF-8
 display_database_statistics <- function(current_stats, update_frequency, daily_activity, active_substances, days_back) {
   message("\n📊 DATABASE STATISTICS REPORT")
   message(paste(rep("=", 70), collapse = ""))
@@ -410,6 +456,8 @@ display_database_statistics <- function(current_stats, update_frequency, daily_a
   message(paste(rep("=", 70), collapse = ""))
 }
 
+# ---- 导出账本（交给外部查看 / 存档） ----------------------------------------
+
 #' Export Update History
 #'
 #' Exports update history and change logs to files for external analysis.
@@ -419,7 +467,9 @@ display_database_statistics <- function(current_stats, update_frequency, daily_a
 #' @param date_from Optional start date for filtering
 #' @param date_to Optional end date for filtering
 #' @return Logical indicating success
+#' @importFrom utils write.csv
 #' @export
+#' @encoding UTF-8
 export_update_history <- function(output_dir = ".", format = "csv", date_from = NULL, date_to = NULL) {
   message("📤 Exporting update history...")
   

@@ -22,10 +22,15 @@ library(fcmsafety)
 # 用户导入自己的物质数据，数据中至少应包含 InChIKey；通常还会包含 CAS、SMILES、名称等字段。
 data <- rio::import("my_detected_compounds.xlsx")
 
-# 对未在监管数据库中出现的物质，可先导出给 Toxtree 批处理。
+# 对未在监管数据库中出现的物质，可直接在 R 内跑 Toxtree Cramer 分类
+# （首次运行会自动下载 Toxtree 到用户缓存目录，需本机装有 Java 8+）。
+# run_toxtree() 会生成 "toxtree_results.csv"。
+run_toxtree(data)
+
+# 也可以继续用导出 + GUI 手动批处理的老流程（export4toxtree 导出给 Toxtree 软件）。
 export4toxtree(data, cas_col = 1, name_col = 2)
 
-# 用户用 Toxtree 得到 Cramer rules 结果后，再执行风险数据库匹配。
+# 拿到 Cramer rules 结果后，执行风险数据库匹配。
 result <- assign_toxicity(data, toxtree_result = "toxtree_results.csv")
 ```
 
@@ -159,6 +164,21 @@ Manifest 建议字段：`file_name`、`gb_standard`、`announcement`、`snapshot
 5. 不适合作为未来所有数据库的一键增量更新核心。
 
 后续应将这里的函数改造成“source adapter / normalize adapter”，只负责获取和规范化来源数据，不直接做全表覆盖写入。
+
+> ⚠️ **本节（`R/databases.R`）的 `download_latest_clp()` / `update_cmr()` 已过时，请勿再用。** 它们是全量重写逻辑（`DELETE FROM cmr` 后整表重写），且下载后不筛 H 代码。CLP 派生 CMR / CMR suspect 的正确入口见下一节 `R/update_other_dbs.R`。
+
+### `R/update_other_dbs.R`（CLP / IARC / EU SML 增量更新的正确入口）
+
+这是 CLP 派生 `cmr` / `cmr_suspect` 的**唯一正确更新入口**（配合 `R/incremental_update.R` 的通用增量核心）。不要再用 `R/databases.R` 里的旧函数。
+
+- 统一委托：`update_cmr_auto()` / `update_cmr_suspect_auto()` / `update_iarc_auto()` / `update_eu_sml_auto()` 都委托 `run_incremental_update(db_name, key_col, cas_col)`，走「先 diff 后 enrich」的增量管线，不整表重写。
+- CMR 与疑似 CMR 的下载后自动筛选（2026-09-01 修复）：
+  - `fetch_cmr_data(source = "download")`：下载 CLP 总表 → 用 `screen_clp(df, "cmr")` 按 H 代码筛出确认 CMR（`H340|H350|H360`）。
+  - `fetch_cmr_suspect_data(source = "download")`：下载 CLP 总表 → 用 `screen_clp(df, "cmr_suspect")` 筛出疑似 CMR（`H341|H351|H361`）。
+  - 两者**非互斥**：一个物质可同时带确认 + 疑似代码，故用两个独立集合分别筛，不是 if/else 二选一。
+  - H 代码列定位：`find_hazard_code_col()` 优先精确匹配 `Hazard Statement Code(s)`，兜底排除 `Alternative` / `Suppl` 备用列。
+- 下载原语：`R/download_sources.R` 的 `download_clp()`（带校验：HTTP 200 + 文件非空 + xlsx 的 "PK" 魔数，失败自动删除并报错）。
+- 参考基线（基于当前 `inst/clp.xlsx` 全表 4316 行的真实 H 代码）：确认 CMR ≈ 1087 行、疑似 CMR ≈ 449 行、两者同时 ≈ 115 行。注意与第 2 节「本地 SQLite 基线计数」（cmr=1139、cmr_suspect=491）不完全一致——库表可能是更早的全量重写口径或含 PubChem 富集差异，首次用新逻辑更新会看到 removed 差异，属预期，`removed > 0` 会强制人工确认（这是安全设计，不是 bug）。
 
 ### `R/enhanced_update_system.R`
 

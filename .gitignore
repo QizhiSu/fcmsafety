@@ -11,3 +11,17 @@ R/process_msdial_data.R
 
 # YoYo AI version control directory
 .yoyo/
+
+# Local work / backup / log files (not part of the package)
+.workbuddy/
+backups/
+_check.log
+four_sources_test_report.rds
+inst/fcmsafety_test.db.bak_*
+tools/_checkdir*/
+# One-off diagnostic probes / scratch scripts: keep local, never publish.
+tools/_tmp_*
+*.tar.gz
+.git.broken-*/
+# R CMD check artifacts
+fcmsafety.Rcheck/

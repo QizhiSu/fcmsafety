@@ -1,121 +1,37 @@
+# =============================================================================
+# xlsx -> SQLite 迁移的兼容包装（薄壳，无自有逻辑）
+#
+# 本文件里三个函数都只是**转发**，真正的迁移实现在
+# sqlite_database_manager.R 的 migrate_xlsx_to_sqlite()：
+#   simple_migrate_xlsx_to_sqlite()  转发迁移 + 打印提示
+#   check_migration_results()        迁移后核对行数
+#   compare_xlsx_sqlite()            xlsx 与库内逐表比对（排查"迁移漏了行"）
+#
+# 为什么还留着：这是旧线（xlsx 装载模式）的公开入口名，外部脚本可能还在调。
+# 新代码请直接用 migrate_xlsx_to_sqlite()。
+# =============================================================================
+
 #' Simple Direct XLSX to SQLite Migration
 #'
 #' 直接把XLSX文件内容迁移到SQLite，不做任何复杂的处理
 #' 保持数据的原始结构和内容
-
-library(dplyr)
-library(rio)
-library(DBI)
-library(RSQLite)
-
-#' 简单直接的数据迁移
+#'
+#' 兼容性包装：实际委托给 sqlite_database_manager.R 中的
+#' \code{migrate_xlsx_to_sqlite()}，以临时库 + 原子替换的方式执行，
+#' 任何失败都不会破坏现有数据库。
 #'
 #' @param force_recreate 是否重新创建数据库
 #' @return 逻辑值表示是否成功
+#' @encoding UTF-8
 simple_migrate_xlsx_to_sqlite <- function(force_recreate = TRUE) {
-  message("🔄 开始简单直接的XLSX到SQLite迁移...")
-
-  # 删除现有数据库
-  db_path <- file.path(getwd(), "inst", "fcmsafety.db")
-  if (force_recreate && file.exists(db_path)) {
-    file.remove(db_path)
-    message("🗑️  删除现有数据库")
-  }
-
-  tryCatch({
-    # 创建数据库连接
-    con <- DBI::dbConnect(RSQLite::SQLite(), db_path)
-    on.exit(DBI::dbDisconnect(con))
-
-    # 定义要迁移的文件
-    files_to_migrate <- list(
-      svhc = "inst/svhc.xlsx",
-      cmr = "inst/cmr.xlsx",
-      cmr_suspect = "inst/suspect_cmr.xlsx",
-      iarc = "inst/iarc.xlsx",
-      eu_sml = "inst/eu10_2011.xlsx",
-      eu_sml_group = "inst/eu10_2011_group.xlsx",
-      edc = "inst/edc.xlsx",
-      china_sml = "inst/china_sml_cleaned.xlsx"
-    )
-
-    total_migrated <- 0
-
-    # 逐个迁移文件
-    for (table_name in names(files_to_migrate)) {
-      file_path <- files_to_migrate[[table_name]]
-
-      if (file.exists(file_path)) {
-        message("📊 迁移 ", table_name, " 从 ", basename(file_path), "...")
-
-        # 直接读取XLSX文件
-        data <- rio::import(file_path)
-        original_count <- nrow(data)
-
-        # 修复重复列名问题（特别处理各种文件的列名冲突）
-        if (table_name %in% c("cmr", "cmr_suspect")) {
-          # 手动修复CMR文件的列名问题
-          col_names <- names(data)
-          # 第8列改名为避免与第6列冲突
-          if (length(col_names) >= 8 && grepl("Hazard statement Code", col_names[8])) {
-            col_names[8] <- "Hazard Statement Code Alternative"
-            names(data) <- col_names
-            message("   ⚠️  修复", table_name, "文件列名冲突")
-          }
-        } else if (table_name == "edc") {
-          # 修复EDC文件的CID列名冲突（cid vs CID）
-          col_names <- names(data)
-          # 找到cid和CID列
-          if ("cid" %in% col_names && "CID" %in% col_names) {
-            # 将小写的cid改为cid_lower
-            cid_index <- which(col_names == "cid")
-            col_names[cid_index] <- "cid_lower"
-            names(data) <- col_names
-            message("   ⚠️  修复", table_name, "文件cid/CID列名冲突")
-          }
-        }
-
-        # 通用的重复列名修复
-        if (any(duplicated(names(data)))) {
-          message("   ⚠️  发现重复列名，正在修复...")
-          names(data) <- make.names(names(data), unique = TRUE)
-        }
-
-        message("   原始记录数: ", original_count)
-        message("   列数: ", ncol(data))
-        message("   列名: ", paste(names(data)[1:min(5, ncol(data))], collapse = ", "),
-                if(ncol(data) > 5) "..." else "")
-
-        # 直接写入SQLite，不做任何处理
-        DBI::dbWriteTable(con, table_name, data, overwrite = TRUE)
-
-        # 验证写入
-        count_check <- DBI::dbGetQuery(con, paste("SELECT COUNT(*) as count FROM", table_name))$count[1]
-
-        if (count_check == original_count) {
-          message("   ✅ 成功迁移 ", count_check, " 条记录")
-          total_migrated <- total_migrated + count_check
-        } else {
-          message("   ❌ 迁移失败: 期望 ", original_count, " 实际 ", count_check)
-        }
-
-      } else {
-        message("   ⚠️  文件不存在: ", file_path)
-      }
-    }
-
-    message("✅ 迁移完成！总共迁移了 ", total_migrated, " 条记录")
-    return(TRUE)
-
-  }, error = function(e) {
-    message("❌ 迁移失败: ", e$message)
-    return(FALSE)
-  })
+  message("🔄 开始简单直接的XLSX到SQLite迁移（原子替换模式）...")
+  migrate_xlsx_to_sqlite(backup_existing = TRUE)
 }
 
 #' 检查迁移结果
 #'
 #' @return 数据框显示迁移结果
+#' @encoding UTF-8
 check_migration_results <- function() {
   message("🔍 检查迁移结果...")
 
@@ -182,19 +98,12 @@ check_migration_results <- function() {
 #' 比较XLSX和SQLite记录数
 #'
 #' @return 数据框显示比较结果
+#' @encoding UTF-8
 compare_xlsx_sqlite <- function() {
   message("📊 比较XLSX和SQLite记录数...")
 
-  files_to_check <- list(
-    svhc = "inst/svhc.xlsx",
-    cmr = "inst/cmr.xlsx",
-    cmr_suspect = "inst/suspect_cmr.xlsx",
-    iarc = "inst/iarc.xlsx",
-    eu_sml = "inst/eu10_2011.xlsx",
-    eu_sml_group = "inst/eu10_2011_group.xlsx",
-    edc = "inst/edc.xlsx",
-    china_sml = "inst/china_sml_cleaned.xlsx"
-  )
+  mapping <- resolve_xlsx_mapping()
+  files_to_check <- lapply(mapping, function(m) m$file)
 
   db_path <- file.path(getwd(), "inst", "fcmsafety.db")
 
@@ -210,7 +119,8 @@ compare_xlsx_sqlite <- function() {
     comparison <- data.frame()
 
     for (table_name in names(files_to_check)) {
-      file_path <- files_to_check[[table_name]]
+      file_name <- files_to_check[[table_name]]
+      file_path <- file.path(getwd(), "inst", file_name)
 
       # XLSX记录数
       xlsx_count <- if (file.exists(file_path)) {
