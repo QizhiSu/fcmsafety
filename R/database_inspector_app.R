@@ -2652,9 +2652,10 @@ launch_database_inspector <- function(port = 3838, launch_browser = TRUE) {
     # 更新类函数在 interactive = FALSE 下不会 readline 卡住：有移除条目或变更数
     # 超过 max_auto_changes 时安全阀会自动停下不写库，原因写在汇总表的 message 列。
     # ============================================================
-    # 更新队列：与 resolve_db_names("all") 的顺序一致。逐库调用而不是一次
-    # databases = "all"，是为了每库给一次 incProgress —— 进度条走真进度。
-    UPDATE_DBS <- c("cmr", "cmr_suspect", "iarc", "eu_sml", "svhc")
+    # 更新队列：直接取 ALL_AUTO_DBS（注册表派生），顺序由构造保证与
+    # resolve_db_names("all") 一致。逐库调用而不是一次 databases = "all"，
+    # 是为了每库给一次 incProgress —— 进度条走真进度。
+    UPDATE_DBS <- ALL_AUTO_DBS
 
     # 页面侧配合：禁用/放开所有一键操作按钮 + 更新状态行
     set_quick_busy <- function(busy, text = NULL) {

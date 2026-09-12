@@ -57,15 +57,14 @@ check_manual_lists <- function(ask = TRUE, auto_apply = FALSE,
                                inst_dir = file.path(getwd(), "inst"),
                                db_path = NULL) {
 
-  # 各源候选文件名：与 fetch 层约定的"人工放置文件"保持一致
-  # （fetch_svhc_local / resolve_source_file 读同一批名字）。
-  # 注意 meta 备份系列（svhc_meta.xlsx 等）不算"人工新清单"。
-  file_map <- list(
-    svhc   = c("candidate_list.xlsx", "svhc_new.xlsx", "svhc_new.csv"),
-    cmr    = c("clp_new.xlsx", "clp_new.csv", "annex_vi_clp.xlsx"),
-    iarc   = c("iarc_new.xlsx", "iarc_new.csv"),
-    eu_sml = c("eu10_2011_new.xlsx", "eu10_2011_new.csv")
-  )
+  # 各源"人工新清单"探测集：从 DB_SOURCES 注册表的 manual_candidates 派生，
+  # 不再手抄第二份名单（fetch 层的 local_candidates 是"本地回退可用文件"，
+  # 身份不同、各自登记；meta 备份系列如 svhc_meta.xlsx 已在注册表显式排除）。
+  manual_map <- list()
+  for (nm in names(DB_SOURCES)) {
+    mc <- DB_SOURCES[[nm]]$manual_candidates
+    if (length(mc) > 0L) manual_map[[nm]] <- mc
+  }
 
   empty_out <- data.frame(db_name = character(), file = character(),
                           added_time = as.POSIXct(character()),
@@ -94,7 +93,7 @@ check_manual_lists <- function(ask = TRUE, auto_apply = FALSE,
       on.exit(DBI::dbDisconnect(con), add = TRUE)
       has_history <- DBI::dbExistsTable(con, "update_history")
       if (has_history) {
-        for (db_name in names(file_map)) {
+        for (db_name in names(manual_map)) {
           ts <- tryCatch({
             DBI::dbGetQuery(con,
               "SELECT MAX(update_timestamp) AS ts FROM update_history
@@ -112,8 +111,8 @@ check_manual_lists <- function(ask = TRUE, auto_apply = FALSE,
   db_mtime <- if (db_exists) file.info(db_file)$mtime else NULL
 
   detected <- list()
-  for (db_name in names(file_map)) {
-    for (fname in file_map[[db_name]]) {
+  for (db_name in names(manual_map)) {
+    for (fname in manual_map[[db_name]]) {
       path <- file.path(inst_dir, fname)
       if (!file.exists(path)) next
 
@@ -182,17 +181,14 @@ check_manual_lists <- function(ask = TRUE, auto_apply = FALSE,
     ok <- FALSE
     err <- NULL
     tryCatch({
-      res <- switch(d$db_name,
-        svhc   = update_svhc_auto(source = "local", new_file = d$file,
-                                  interactive = FALSE, auto_apply = TRUE),
-        cmr    = update_cmr_auto(source = "local", new_file = d$file,
-                                 interactive = FALSE, auto_apply = TRUE),
-        iarc   = update_iarc_auto(source = "local", new_file = d$file,
-                                  interactive = FALSE, auto_apply = TRUE),
-        eu_sml = update_eu_sml_auto(source = "local", new_file = d$file,
-                                    interactive = FALSE, auto_apply = TRUE),
-        list(success = FALSE, error = "未知库名")
-      )
+      # 分发也走注册表：svhc 独立一条线，其余走注册表驱动的公共入口
+      res <- if (identical(DB_SOURCES[[d$db_name]]$line, "svhc")) {
+        update_svhc_auto(source = "local", new_file = d$file,
+                         interactive = FALSE, auto_apply = TRUE)
+      } else {
+        update_source_auto(d$db_name, source = "local", new_file = d$file,
+                           interactive = FALSE, auto_apply = TRUE)
+      }
       ok <- isTRUE(res$success)
       if (!ok && !is.null(res$error)) err <- res$error
     }, error = function(e) {

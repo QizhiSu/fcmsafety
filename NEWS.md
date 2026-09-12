@@ -1,5 +1,14 @@
 # fcmsafety 0.1.6 (unreleased)
 
+## One source of truth for per-source manual-list detection
+- `manual_candidates` (the file names probed as hand-dropped new lists) now
+  live in the `DB_SOURCES` registry next to the fetch fallback lists, with the
+  svhc_meta.xlsx "backup, not a new list" exclusion recorded once instead of
+  twice. `check_manual_lists()` derives its probe set and its per-source
+  dispatch from the registry, and the Shiny app's `UPDATE_DBS` queue is derived
+  from `ALL_AUTO_DBS` - three more hand-maintained copies of the database list
+  are gone, so adding a source cannot silently miss the manual-list probe.
+
 ## Deepen the update-line: one registry instead of nine touchpoints
 - New internal `DB_SOURCES` registry holds every per-source difference (label,
   key columns, fetch file names/sheets/header layers, normalize fn, CLP H-code

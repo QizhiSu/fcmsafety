@@ -108,7 +108,7 @@ res <- assign_toxicity(x, output_file = "report.xlsx")
 |---|---|---|
 | 调整毒性等级规则（如 SML 阈值） | `direct_sql_toxicity.R` 的 `compute_toxicity_levels()` 与顶部 `.cmr_*_h_codes` | 纯函数，先看同文件的等级注释块 |
 | 报告加一列 / 换配色 | `toxicity_report_export.R` 的样式区 | 只动 `.level_fills` / `.style_table()` |
-| 加一个新法规库 | ① `inst/fcmsafety_schema.sql` 加表 ② `download_sources.R` 加抓取 ③ `update_other_dbs.R` 的 `DB_SOURCES` 注册表加一条（名单与总调度分发自动派生）④ `incremental_update.R` 的 `db_col_candidates` 登记列名差异 | ③④ 漏了会静默不生效；`manual_list_check.R` 的 file_map 与 inspector 的 `UPDATE_DBS` 仍是独立登记点，见架构评审候选 3 |
+| 加一个新法规库 | ① `inst/fcmsafety_schema.sql` 加表 ② `download_sources.R` 加抓取 ③ `update_other_dbs.R` 的 `DB_SOURCES` 注册表加一条（名单、总调度分发、人工清单探测集、inspector 更新队列全部自动派生）④ `incremental_update.R` 的 `db_col_candidates` 登记列名差异 | ③④ 漏了会静默不生效；fetch 层的本地回退候选（local_candidates）与人工探测集（manual_candidates）在注册表里分列登记 |
 | 某官网抓不到了 | `download_sources.R` 对应函数 | 先读函数头注释，里面写了当前可用路径和回退顺序 |
 | Cramer 分级不对 | `toxtree.R` | **改完必须重装包**；Toxtree 以 cwd 定位 `ext/` |
 | 查为什么某物质"查不到" | `direct_sql_toxicity.R` 的 `query_*_data()` + Issues 表 | 先看 Issues sheet 有没有查询失败记录 |

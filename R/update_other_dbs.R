@@ -409,13 +409,16 @@ normalize_eu_sml_values <- function(df) {
 # 新增一个法规库的触点因此收敛为：① schema.sql 建表 ② download_sources.R 加
 # 下载函数 ③ 这里加一条注册项。注意 fetch 层是 internal，可自由演进；四个
 # 导出 update_*_auto 与四个 fetch_*_data 保留原签名作为薄壳（测试与用户依赖）。
-# manual_list_check.R 的 file_map 与 database_inspector_app.R 的 UPDATE_DBS
-# 暂是独立登记点，待并入（见架构评审候选 3）。
+# 人工新清单探测集（manual_candidates）同样登记在此：manual_list_check.R 的
+# file_map 与 database_inspector_app.R 的 UPDATE_DBS 均由此派生。
+# 仍独立的登记点：incremental_update.R 的 db_col_candidates（逐库列名差异）、
+# fetch_svhc_local 的本地回退名单（SVHC 独立线，含 svhc_meta 备份语义）。
 DB_SOURCES <- list(
   cmr = list(
     label = "CMR", line = "incremental",
     key_col = "index_no", fallback_col = "cas_no",
     cas_col = "cas_no", name_col = "international_chemical_identification",
+    manual_candidates = c("clp_new.xlsx", "clp_new.csv", "annex_vi_clp.xlsx"),
     fetch = list(
       download_label = "CLP",
       download_fun = "download_clp", download_file = "clp.xlsx",
@@ -434,6 +437,7 @@ DB_SOURCES <- list(
     label = "CMR_suspect", line = "incremental",
     key_col = "index_no", fallback_col = "cas_no",
     cas_col = "cas_no", name_col = "substance_name",
+    manual_candidates = NULL,  # 与 cmr 共用同一份 CLP 文件，由 cmr 的候选探测覆盖
     fetch = list(
       download_label = "CLP",
       download_fun = "download_clp", download_file = "clp.xlsx",
@@ -452,6 +456,7 @@ DB_SOURCES <- list(
     label = "IARC", line = "incremental",
     key_col = "cas_no", fallback_col = "agent",
     cas_col = "cas_no", name_col = "agent",
+    manual_candidates = c("iarc_new.xlsx", "iarc_new.csv"),
     fetch = list(
       download_label = "IARC",
       download_fun = "download_iarc", download_file = "iarc.xlsx",
@@ -470,6 +475,7 @@ DB_SOURCES <- list(
     label = "EU SML", line = "incremental",
     key_col = "fcm_substance_no", fallback_col = "cas_no",
     cas_col = "cas_no", name_col = "substance_name",
+    manual_candidates = c("eu10_2011_new.xlsx", "eu10_2011_new.csv"),
     fetch = list(
       download_label = "EU SML",
       download_fun = "download_eu_sml", download_file = "eu10_2011.xlsx",
@@ -484,7 +490,12 @@ DB_SOURCES <- list(
       screen_kind = NULL
     )
   ),
-  svhc = list(label = "SVHC", line = "svhc")
+  svhc = list(
+    label = "SVHC", line = "svhc",
+    # svhc_meta.xlsx 刻意不在探测集：它是库内全量备份，不是人工新清单
+    # （fetch_svhc_local 的本地回退名单另有它，见 auto_update_svhc.R）
+    manual_candidates = c("candidate_list.xlsx", "svhc_new.xlsx", "svhc_new.csv")
+  )
 )
 
 # ---- 数据获取：读本地新文件 / 回退 meta 文件 / 下载 --------------------------
