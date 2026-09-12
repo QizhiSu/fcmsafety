@@ -107,6 +107,7 @@ translate_run_message <- function(x) {
   map <- c(
     "Dry run (no apply)"                       = "预演通过（本轮未写库）",
     "Cancelled: removals require manual review" = "安全阀拦下：有移除条目，需人工确认",
+    "Cancelled: removed entries require manual review" = "安全阀拦下：有移除条目，需人工确认",
     "Too many changes for auto_apply"          = "变更过多，超过自动上限",
     "No changes"                               = "已是最新，无变更",
     "Update applied"                           = "已写入数据库",

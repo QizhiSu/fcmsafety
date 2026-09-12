@@ -1,5 +1,19 @@
 # fcmsafety 0.1.6 (unreleased)
 
+## Deepen the update-line: one registry instead of nine touchpoints
+- New internal `DB_SOURCES` registry holds every per-source difference (label,
+  key columns, fetch file names/sheets/header layers, normalize fn, CLP H-code
+  screening) as data. The four `fetch_*_data()` twins collapse into one
+  `fetch_source_data()`; the four exported `update_*_auto()` entries keep their
+  exact signatures and become thin shells over a registry-driven
+  `update_source_auto()`. `ALL_AUTO_DBS` and the `update_database_auto()`
+  dispatch are now derived from the registry, so adding a source no longer
+  means editing a name list and a `switch()` by hand.
+- Fixed a live drift bug this duplication had already caused: SVHC's safety
+  valve message ("Cancelled: removed entries require manual review") was never
+  registered in `translate_run_message()`, so the Shiny run panel showed that
+  one row in English while every other database was translated.
+
 ## Harden the regulatory-database downloaders
 - `download_clp()` plain-HTTP path now sends the full browser-like header set
   (ECHA's Azure WAF keys on `Accept: text/html`; the bare package UA was 403'd

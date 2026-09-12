@@ -396,6 +396,97 @@ normalize_eu_sml_values <- function(df) {
   df
 }
 
+# ---- 法规库注册表：每库一条注册项（单一事实源） ------------------------------
+#
+# 增量更新线的全部逐库差异都是数据不是逻辑，集中登记在这里：
+#   label        人类可读名（报错与进度 message 用）
+#   line         "incremental"（走 run_incremental_update 公共流水线）或 "svhc"
+#                （独立一条线，见 auto_update_svhc.R；code-map 约定不迁公共线）
+#   key_col 等   run_incremental_update 的键/列参数
+#   fetch        取数配置：下载函数名与落盘名、各分支（显式文件 / 下载 / 本地
+#                候选 / meta 兜底）各自的 sheet 与表头层数、期望列、normalize
+#                函数、H 码筛选（screen_kind，仅 CLP 派生的两库）
+# 新增一个法规库的触点因此收敛为：① schema.sql 建表 ② download_sources.R 加
+# 下载函数 ③ 这里加一条注册项。注意 fetch 层是 internal，可自由演进；四个
+# 导出 update_*_auto 与四个 fetch_*_data 保留原签名作为薄壳（测试与用户依赖）。
+# manual_list_check.R 的 file_map 与 database_inspector_app.R 的 UPDATE_DBS
+# 暂是独立登记点，待并入（见架构评审候选 3）。
+DB_SOURCES <- list(
+  cmr = list(
+    label = "CMR", line = "incremental",
+    key_col = "index_no", fallback_col = "cas_no",
+    cas_col = "cas_no", name_col = "international_chemical_identification",
+    fetch = list(
+      download_label = "CLP",
+      download_fun = "download_clp", download_file = "clp.xlsx",
+      download_fallback = TRUE,
+      new_file_sheet = NULL, new_file_two_hdr = TRUE,
+      download_sheet = NULL, download_two_hdr = TRUE,
+      local_candidates = c("clp_new.xlsx", "clp_new.csv", "annex_vi_clp.xlsx"),
+      local_sheet = NULL, local_two_hdr = TRUE,
+      meta_file = "clp_cmr_meta.xlsx", meta_sheet = "cmr", meta_two_hdr = FALSE,
+      expected_col = "Index No",
+      normalize = normalize_cmr_df,
+      screen_kind = "cmr"
+    )
+  ),
+  cmr_suspect = list(
+    label = "CMR_suspect", line = "incremental",
+    key_col = "index_no", fallback_col = "cas_no",
+    cas_col = "cas_no", name_col = "substance_name",
+    fetch = list(
+      download_label = "CLP",
+      download_fun = "download_clp", download_file = "clp.xlsx",
+      download_fallback = TRUE,
+      new_file_sheet = NULL, new_file_two_hdr = FALSE,
+      download_sheet = NULL, download_two_hdr = TRUE,
+      local_candidates = NULL,
+      local_sheet = NULL, local_two_hdr = FALSE,
+      meta_file = "clp_cmr_meta.xlsx", meta_sheet = "cmr_suspect", meta_two_hdr = FALSE,
+      expected_col = "Index No",
+      normalize = normalize_cmr_df,
+      screen_kind = "cmr_suspect"
+    )
+  ),
+  iarc = list(
+    label = "IARC", line = "incremental",
+    key_col = "cas_no", fallback_col = "agent",
+    cas_col = "cas_no", name_col = "agent",
+    fetch = list(
+      download_label = "IARC",
+      download_fun = "download_iarc", download_file = "iarc.xlsx",
+      download_fallback = FALSE,
+      new_file_sheet = NULL, new_file_two_hdr = FALSE,
+      download_sheet = NULL, download_two_hdr = FALSE,
+      local_candidates = c("iarc_new.xlsx", "iarc_new.csv"),
+      local_sheet = NULL, local_two_hdr = FALSE,
+      meta_file = "iarc_meta.xlsx", meta_sheet = NULL, meta_two_hdr = FALSE,
+      expected_col = "Agent",
+      normalize = normalize_iarc_df,
+      screen_kind = NULL
+    )
+  ),
+  eu_sml = list(
+    label = "EU SML", line = "incremental",
+    key_col = "fcm_substance_no", fallback_col = "cas_no",
+    cas_col = "cas_no", name_col = "substance_name",
+    fetch = list(
+      download_label = "EU SML",
+      download_fun = "download_eu_sml", download_file = "eu10_2011.xlsx",
+      download_fallback = FALSE,
+      new_file_sheet = "SML", new_file_two_hdr = FALSE,
+      download_sheet = "SML", download_two_hdr = FALSE,
+      local_candidates = c("eu10_2011_new.xlsx", "eu10_2011_new.csv"),
+      local_sheet = "SML", local_two_hdr = FALSE,
+      meta_file = "eu10_2011_meta.xlsx", meta_sheet = NULL, meta_two_hdr = FALSE,
+      expected_col = "FCM substance No",
+      normalize = normalize_eu_sml_df,
+      screen_kind = NULL
+    )
+  ),
+  svhc = list(label = "SVHC", line = "svhc")
+)
+
 # ---- 数据获取：读本地新文件 / 回退 meta 文件 / 下载 --------------------------
 
 #' 在 inst/ 中按候选名解析第一个存在的文件
@@ -413,6 +504,80 @@ resolve_source_file <- function(candidates, inst_dir = file.path(getwd(), "inst"
   NULL
 }
 
+#' 注册表驱动的通用取数（internal）
+#'
+#' 四个 fetch_*_data 孪生体的唯一实现：显式文件 -> 下载（可配置失败回退本地）->
+#' 本地候选名 -> meta 兜底，各分支的 sheet / 表头层数由 DB_SOURCES 注册表的
+#' fetch 配置决定，最后统一 normalize（CLP 派生的两库再按 H 码筛）。
+#'
+#' 一律按 H 码筛的注释（cmr/cmr_suspect）：下载的 CLP 是全表必须筛；已筛过的
+#' 文件重复筛是幂等操作（str_detect 只会保留，不会误删），但能挡住"手动放进
+#' 来的 clp_new.xlsx 其实是 CLP 全表"这种情况——2026-09-10 实测该路径原先不筛，
+#' 会把非 CMR 物质（只要 InChIKey 非空）写进 cmr 表。
+#'
+#' @param db_name 库名（DB_SOURCES 的名字）
+#' @param source "local" 或 "download"
+#' @param new_file 显式文件路径（优先于候选名）
+#' @param inst_dir inst 目录
+#' @return 标准化后的 data.frame
+#' @keywords internal
+#' @encoding UTF-8
+fetch_source_data <- function(db_name, source = c("local", "download"),
+                              new_file = NULL,
+                              inst_dir = file.path(getwd(), "inst")) {
+  source <- match.arg(source)
+  cfg <- DB_SOURCES[[db_name]]$fetch
+  path <- NULL
+  sheet <- NULL
+  two_hdr <- FALSE
+
+  # 显式文件优先：直接读，不触发下载，避免覆盖 inst/ 真实数据
+  if (!is.null(new_file) && file.exists(new_file)) {
+    path <- new_file
+    sheet <- cfg$new_file_sheet
+    two_hdr <- cfg$new_file_two_hdr
+  } else if (source == "download") {
+    if (isTRUE(cfg$download_fallback)) {
+      dl_ok <- tryCatch({
+        do.call(cfg$download_fun, list(out = file.path(inst_dir, cfg$download_file)))
+        TRUE
+      }, error = function(e) {
+        message("   ", cfg$download_label, " download failed, falling back to local ",
+                cfg$label, " source: ", conditionMessage(e))
+        FALSE
+      })
+      if (dl_ok) {
+        path <- file.path(inst_dir, cfg$download_file)
+        sheet <- cfg$download_sheet
+        two_hdr <- cfg$download_two_hdr
+      }
+    } else {
+      do.call(cfg$download_fun, list(out = file.path(inst_dir, cfg$download_file)))
+      path <- file.path(inst_dir, cfg$download_file)
+      sheet <- cfg$download_sheet
+      two_hdr <- cfg$download_two_hdr
+    }
+  }
+
+  if (is.null(path)) {
+    path <- resolve_source_file(cfg$local_candidates, inst_dir)
+    if (is.null(path)) {
+      path <- file.path(inst_dir, cfg$meta_file)
+      sheet <- cfg$meta_sheet
+      two_hdr <- cfg$meta_two_hdr
+    } else {
+      sheet <- cfg$local_sheet
+      two_hdr <- cfg$local_two_hdr
+    }
+  }
+  if (!file.exists(path)) stop("No ", cfg$label, " source file found in ", inst_dir)
+  message("Reading ", cfg$label, " source: ", path)
+  raw <- read_source_table(path, sheet = sheet, expected_col = cfg$expected_col,
+                           two_row_header = two_hdr)
+  df <- cfg$normalize(raw)
+  if (is.null(cfg$screen_kind)) df else screen_clp(df, cfg$screen_kind)
+}
+
 #' 获取 CMR 数据（local / download）
 #'
 #' local 优先读 clp_new.xlsx / clp_new.csv / annex_vi_clp.xlsx，找不到则回退
@@ -427,49 +592,7 @@ resolve_source_file <- function(candidates, inst_dir = file.path(getwd(), "inst"
 #' @encoding UTF-8
 fetch_cmr_data <- function(source = c("local", "download"), new_file = NULL,
                            inst_dir = file.path(getwd(), "inst")) {
-  source <- match.arg(source)
-  path <- NULL
-  sheet <- NULL
-  two_hdr <- TRUE
-
-  # 显式文件优先：直接读，不触发下载，避免覆盖 inst/ 真实数据
-  if (!is.null(new_file) && file.exists(new_file)) {
-    path <- new_file
-  } else if (source == "download") {
-    dl_ok <- tryCatch({
-      download_clp(out = file.path(inst_dir, "clp.xlsx"))
-      TRUE
-    }, error = function(e) {
-      message("   CLP download failed, falling back to local CMR source: ",
-              conditionMessage(e))
-      FALSE
-    })
-    if (dl_ok) {
-      path <- file.path(inst_dir, "clp.xlsx")
-    }
-  }
-
-  if (is.null(path)) {
-    path <- resolve_source_file(c("clp_new.xlsx", "clp_new.csv", "annex_vi_clp.xlsx"), inst_dir)
-    if (is.null(path)) {
-      path <- file.path(inst_dir, "clp_cmr_meta.xlsx")
-      sheet <- "cmr"
-      two_hdr <- FALSE
-    } else {
-      sheet <- NULL
-      two_hdr <- TRUE
-    }
-  }
-  if (!file.exists(path)) stop("No CMR source file found in ", inst_dir)
-  message("Reading CMR source: ", path)
-  raw <- read_source_table(path, sheet = sheet, expected_col = "Index No",
-                           two_row_header = two_hdr)
-  df <- normalize_cmr_df(raw)
-  # 一律按 H 码筛。下载的 CLP 是全表必须筛；已筛过的文件重复筛是幂等操作
-  # （str_detect 只会保留，不会误删），但能挡住"手动放进来的 clp_new.xlsx
-  # 其实是 CLP 全表"这种情况——2026-09-10 实测该路径原先不筛，会把非 CMR
-  # 物质（只要 InChIKey 非空）写进 cmr 表。
-  screen_clp(df, "cmr")
+  fetch_source_data("cmr", source = source, new_file = new_file, inst_dir = inst_dir)
 }
 
 #' 获取 CMR_suspect 数据（local / download）
@@ -486,40 +609,8 @@ fetch_cmr_data <- function(source = c("local", "download"), new_file = NULL,
 fetch_cmr_suspect_data <- function(source = c("local", "download"),
                                    new_file = NULL,
                                    inst_dir = file.path(getwd(), "inst")) {
-  source <- match.arg(source)
-  path <- NULL
-  sheet <- NULL
-  two_hdr <- FALSE
-
-  # 显式文件优先：直接读，不触发下载，避免覆盖 inst/ 真实数据
-  if (!is.null(new_file) && file.exists(new_file)) {
-    path <- new_file
-  } else if (source == "download") {
-    dl_ok <- tryCatch({
-      download_clp(out = file.path(inst_dir, "clp.xlsx"))
-      TRUE
-    }, error = function(e) {
-      message("   CLP download failed, falling back to local CMR_suspect source: ",
-              conditionMessage(e))
-      FALSE
-    })
-    if (dl_ok) {
-      path <- file.path(inst_dir, "clp.xlsx")
-      two_hdr <- TRUE
-    }
-  }
-
-  if (is.null(path)) {
-    path <- file.path(inst_dir, "clp_cmr_meta.xlsx")
-    sheet <- "cmr_suspect"
-  }
-  if (!file.exists(path)) stop("No CMR_suspect source file found in ", inst_dir)
-  message("Reading CMR_suspect source: ", path)
-  raw <- read_source_table(path, sheet = sheet, expected_col = "Index No",
-                           two_row_header = two_hdr)
-  df <- normalize_cmr_df(raw)
-  # 同 fetch_cmr_data：一律按 H 码（H341/H351/H361）筛，理由见该函数注释。
-  screen_clp(df, "cmr_suspect")
+  fetch_source_data("cmr_suspect", source = source, new_file = new_file,
+                    inst_dir = inst_dir)
 }
 
 #' 获取 IARC 数据（local / download）
@@ -532,29 +623,7 @@ fetch_cmr_suspect_data <- function(source = c("local", "download"),
 #' @encoding UTF-8
 fetch_iarc_data <- function(source = c("local", "download"), new_file = NULL,
                             inst_dir = file.path(getwd(), "inst")) {
-  source <- match.arg(source)
-  # 显式文件优先：直接读，不触发下载，避免覆盖 inst/ 真实数据
-  if (!is.null(new_file) && file.exists(new_file)) {
-    path <- new_file
-    sheet <- NULL
-  } else if (source == "download") {
-    download_iarc(out = file.path(inst_dir, "iarc.xlsx"))
-    path <- file.path(inst_dir, "iarc.xlsx")
-    sheet <- NULL
-  } else {
-    path <- resolve_source_file(c("iarc_new.xlsx", "iarc_new.csv"), inst_dir)
-    if (is.null(path)) {
-      path <- file.path(inst_dir, "iarc_meta.xlsx")
-      sheet <- NULL
-    } else {
-      sheet <- NULL
-    }
-  }
-  if (!file.exists(path)) stop("No IARC source file found in ", inst_dir)
-  message("Reading IARC source: ", path)
-  raw <- read_source_table(path, sheet = sheet, expected_col = "Agent",
-                           two_row_header = FALSE)
-  normalize_iarc_df(raw)
+  fetch_source_data("iarc", source = source, new_file = new_file, inst_dir = inst_dir)
 }
 
 #' 获取 EU SML 数据（local / download）
@@ -567,32 +636,40 @@ fetch_iarc_data <- function(source = c("local", "download"), new_file = NULL,
 #' @encoding UTF-8
 fetch_eu_sml_data <- function(source = c("local", "download"), new_file = NULL,
                               inst_dir = file.path(getwd(), "inst")) {
-  source <- match.arg(source)
-  # 显式文件优先：直接读，不触发下载，避免覆盖 inst/ 真实数据
-  if (!is.null(new_file) && file.exists(new_file)) {
-    path <- new_file
-    sheet <- "SML"
-  } else if (source == "download") {
-    download_eu_sml(out = file.path(inst_dir, "eu10_2011.xlsx"))
-    path <- file.path(inst_dir, "eu10_2011.xlsx")
-    sheet <- "SML"
-  } else {
-    path <- resolve_source_file(c("eu10_2011_new.xlsx", "eu10_2011_new.csv"), inst_dir)
-    if (is.null(path)) {
-      path <- file.path(inst_dir, "eu10_2011_meta.xlsx")
-      sheet <- NULL
-    } else {
-      sheet <- NULL
-    }
-  }
-  if (!file.exists(path)) stop("No EU SML source file found in ", inst_dir)
-  message("Reading EU SML source: ", path)
-  raw <- read_source_table(path, sheet = sheet, expected_col = "FCM substance No",
-                           two_row_header = FALSE)
-  normalize_eu_sml_df(raw)
+  fetch_source_data("eu_sml", source = source, new_file = new_file, inst_dir = inst_dir)
 }
 
 # ---- 各源入口：update_*_auto()（CMR / CMR_suspect / IARC / EU_SML） ----------
+
+#' 注册表驱动的公共更新入口（internal）
+#'
+#' 四个导出 update_*_auto 薄壳的唯一实现：取数（fetch_source_data）->
+#' run_incremental_update 公共流水线，逐库参数全部来自 DB_SOURCES 注册表。
+#'
+#' @param db_name 库名（DB_SOURCES 的名字）
+#' @inheritParams update_cmr_auto
+#' @return list(success, changes, db_write)
+#' @keywords internal
+#' @encoding UTF-8
+update_source_auto <- function(db_name, source = c("local", "download"),
+                               new_file = NULL, interactive = TRUE,
+                               auto_apply = FALSE, max_auto_changes = 20,
+                               enrich = TRUE, db_path = NULL, backup = TRUE,
+                               delay = 0.35) {
+  source <- match.arg(source)
+  cfg <- DB_SOURCES[[db_name]]
+  new_df <- fetch_source_data(db_name, source = source, new_file = new_file)
+  message("   ", cfg$label, " rows after normalization: ", nrow(new_df))
+  run_incremental_update(
+    db_name = db_name, new_df = new_df,
+    key_col = cfg$key_col, fallback_col = cfg$fallback_col,
+    cas_col = cfg$cas_col, name_col = cfg$name_col,
+    content_cols = NULL,
+    interactive = interactive, auto_apply = auto_apply,
+    max_auto_changes = max_auto_changes, enrich = enrich,
+    db_path = db_path, backup = backup, delay = delay
+  )
+}
 
 #' CMR 自动更新（读源 -> 标准化 -> 只补新增 -> diff -> 确认 -> 入库）
 #'
@@ -616,18 +693,10 @@ update_cmr_auto <- function(source = c("local", "download"), new_file = NULL,
                             interactive = TRUE, auto_apply = FALSE,
                             max_auto_changes = 20, enrich = TRUE,
                             db_path = NULL, backup = TRUE, delay = 0.35) {
-  new_df <- fetch_cmr_data(source = source, new_file = new_file)
-  message("   CMR rows after normalization: ", nrow(new_df))
-  run_incremental_update(
-    db_name = "cmr", new_df = new_df,
-    key_col = "index_no", fallback_col = "cas_no",
-    cas_col = "cas_no",
-    name_col = "international_chemical_identification",
-    content_cols = NULL,
-    interactive = interactive, auto_apply = auto_apply,
-    max_auto_changes = max_auto_changes, enrich = enrich,
-    db_path = db_path, backup = backup, delay = delay
-  )
+  update_source_auto("cmr", source = source, new_file = new_file,
+                     interactive = interactive, auto_apply = auto_apply,
+                     max_auto_changes = max_auto_changes, enrich = enrich,
+                     db_path = db_path, backup = backup, delay = delay)
 }
 
 #' CMR_suspect 自动更新
@@ -658,18 +727,10 @@ update_cmr_suspect_auto <- function(source = c("local", "download"),
                                     auto_apply = FALSE, max_auto_changes = 20,
                                     enrich = TRUE, db_path = NULL, backup = TRUE,
                                     delay = 0.35) {
-  new_df <- fetch_cmr_suspect_data(source = source, new_file = new_file)
-  message("   CMR_suspect rows after normalization: ", nrow(new_df))
-  run_incremental_update(
-    db_name = "cmr_suspect", new_df = new_df,
-    key_col = "index_no", fallback_col = "cas_no",
-    cas_col = "cas_no",
-    name_col = "substance_name",
-    content_cols = NULL,
-    interactive = interactive, auto_apply = auto_apply,
-    max_auto_changes = max_auto_changes, enrich = enrich,
-    db_path = db_path, backup = backup, delay = delay
-  )
+  update_source_auto("cmr_suspect", source = source, new_file = new_file,
+                     interactive = interactive, auto_apply = auto_apply,
+                     max_auto_changes = max_auto_changes, enrich = enrich,
+                     db_path = db_path, backup = backup, delay = delay)
 }
 
 #' IARC 自动更新
@@ -693,18 +754,10 @@ update_iarc_auto <- function(source = c("local", "download"), new_file = NULL,
                              interactive = TRUE, auto_apply = FALSE,
                              max_auto_changes = 20, enrich = TRUE,
                              db_path = NULL, backup = TRUE, delay = 0.35) {
-  new_df <- fetch_iarc_data(source = source, new_file = new_file)
-  message("   IARC rows after normalization: ", nrow(new_df))
-  run_incremental_update(
-    db_name = "iarc", new_df = new_df,
-    key_col = "cas_no", fallback_col = "agent",
-    cas_col = "cas_no",
-    name_col = "agent",
-    content_cols = NULL,
-    interactive = interactive, auto_apply = auto_apply,
-    max_auto_changes = max_auto_changes, enrich = enrich,
-    db_path = db_path, backup = backup, delay = delay
-  )
+  update_source_auto("iarc", source = source, new_file = new_file,
+                     interactive = interactive, auto_apply = auto_apply,
+                     max_auto_changes = max_auto_changes, enrich = enrich,
+                     db_path = db_path, backup = backup, delay = delay)
 }
 
 #' EU SML 自动更新
@@ -730,34 +783,26 @@ update_eu_sml_auto <- function(source = c("local", "download"), new_file = NULL,
                                interactive = TRUE, auto_apply = FALSE,
                                max_auto_changes = 20, enrich = TRUE,
                                db_path = NULL, backup = TRUE, delay = 0.35) {
-  new_df <- fetch_eu_sml_data(source = source, new_file = new_file)
-  message("   EU SML rows after normalization: ", nrow(new_df))
-  run_incremental_update(
-    db_name = "eu_sml", new_df = new_df,
-    key_col = "fcm_substance_no", fallback_col = "cas_no",
-    cas_col = "cas_no",
-    name_col = "substance_name",
-    content_cols = NULL,
-    interactive = interactive, auto_apply = auto_apply,
-    max_auto_changes = max_auto_changes, enrich = enrich,
-    db_path = db_path, backup = backup, delay = delay
-  )
+  update_source_auto("eu_sml", source = source, new_file = new_file,
+                     interactive = interactive, auto_apply = auto_apply,
+                     max_auto_changes = max_auto_changes, enrich = enrich,
+                     db_path = db_path, backup = backup, delay = delay)
 }
 
 # =============================================================================
 # 总入口：update_database_auto() —— 一键更新全部/指定数据源（薄调度层）
 #
-# 定位：只做"排程"，不写任何更新逻辑。下载 / diff / 入库全部转发给各源
-# 子函数：cmr / cmr_suspect / iarc / eu_sml -> update_*_auto()（本文件上文），
+# 定位：只做"排程"，不写任何更新逻辑。下载 / diff / 入库全部转发给各源子函数：
+# cmr / cmr_suspect / iarc / eu_sml -> update_source_auto()（注册表驱动），
 # svhc -> update_svhc_auto()（auto_update_svhc.R）。
-# 维护约定：新增数据源 = ALL_AUTO_DBS 加名字 + switch() 加一行映射；
-# 改某源行为 = 改对应子函数，这里不动。
+# 维护约定：新增数据源 = DB_SOURCES 加一条注册项（名单与分发自动派生）；
+# 改某源行为 = 改注册项或对应子函数，这里不动。
 # =============================================================================
 
 #' 可一键自动更新的数据源清单
 #' @keywords internal
 #' @encoding UTF-8
-ALL_AUTO_DBS <- c("cmr", "cmr_suspect", "iarc", "eu_sml", "svhc")
+ALL_AUTO_DBS <- names(DB_SOURCES)
 
 #' 解析 databases 参数："all" 展开为全部数据源，否则校验名字合法
 #' @keywords internal
@@ -825,20 +870,17 @@ update_database_auto <- function(databases = "all",
 
   results <- lapply(dbs, function(db) {
     message("\n==== Updating ", db, " ====")
-    fn <- switch(db,
-                 cmr = update_cmr_auto,
-                 cmr_suspect = update_cmr_suspect_auto,
-                 iarc = update_iarc_auto,
-                 eu_sml = update_eu_sml_auto,
-                 svhc = update_svhc_auto)
     args <- list(interactive = interactive, auto_apply = auto_apply,
                  max_auto_changes = max_auto_changes,
                  db_path = db_path, backup = backup)
-    if (db == "svhc") {
+    fn <- update_source_auto
+    if (identical(DB_SOURCES[[db]]$line, "svhc")) {
       args$source <- svhc_source              # SVHC 无 delay 参数
+      fn <- update_svhc_auto
     } else {
       args$source <- source
       args$delay <- delay
+      args <- c(list(db_name = db), args)
     }
     # enrich = NULL 时不传，尊重各子库自带默认
     if (!is.null(enrich)) args$enrich <- enrich

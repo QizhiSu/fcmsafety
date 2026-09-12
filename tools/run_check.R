@@ -37,7 +37,9 @@
 #    属预期：中文文案常量不打算改成 \uXXXX 转义。
 # ---------------------------------------------------------------------------
 
-rbin <- file.path(R.home("bin"), "R.exe")
+# Windows 的可执行名是 R.exe；Unix 是 R。写死 R.exe 会让 macOS/Linux 在
+# 第一步 build 就静默失败（system2 找不到命令，日志为空、无 tarball）。
+rbin <- file.path(R.home("bin"), if (.Platform$OS.type == "windows") "R.exe" else "R")
 pkgdir <- normalizePath(".")
 pkgname <- basename(pkgdir)
 
