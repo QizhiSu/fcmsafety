@@ -83,7 +83,7 @@ res <- assign_toxicity(x, output_file = "report.xlsx")
 
 | 文件 | 行数 | 职责 |
 |---|---:|---|
-| `database_inspector_app.R` | ~2960 | Shiny 查看器。**整个包在一个函数里**，只有 1 个导出函数。一键操作面板见 ADR 0011 |
+| `database_inspector_app.R` | ~3000 | Shiny 查看器。**整个包在一个函数里**，只有 1 个导出函数。一键操作面板见 ADR 0011；筛查面板（上传清单 → run_screening → 等级分布 + 报告下载）见"筛查面板"注释块 |
 | `update_run_guard.R` | ~180 | 一键更新的守卫与判读：防积压点击 / 预演结果判读 / 逐库跑一轮。**纯函数，有测试覆盖**，改更新按钮先看这里 |
 | `fcmsafety_main.R` | ~350 | 建库 / 状态 / 体检三个面向用户的入口 |
 | `update_history_audit.R` | ~520 | 读更新账本，回答"这条数据什么时候进来的" |

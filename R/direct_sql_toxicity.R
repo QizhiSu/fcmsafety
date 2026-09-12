@@ -126,8 +126,16 @@ assign_toxicity <- function(data, toxtree_result = "toxtree_results.csv",
   } else if ("SMILES" %in% names(data)) {
     message("🔄 Toxtree result file not found: ", toxtree_result)
     message("   Automatically running Toxtree to generate it...")
-    run_toxtree(data, output = toxtree_result)
-    tox <- utils::read.csv(toxtree_result)
+    # Toxtree 运行失败（无 Java / jar 下载失败 / 个别环境问题）不拖垮整个筛查：
+    # 法规清单匹配照常，Cramer 列留空——与"无 SMILES 跳过分级"（P1-③）同一策略。
+    tox <- tryCatch({
+      run_toxtree(data, output = toxtree_result)
+      utils::read.csv(toxtree_result)
+    }, error = function(e) {
+      message("⚠️  Toxtree failed: ", conditionMessage(e))
+      message("   Continuing with regulatory matching only; Cramer columns stay blank.")
+      NULL
+    })
   } else {
     message("ℹ️  Toxtree result file not found: ", toxtree_result,
             "\n   Input data has no SMILES column, so Toxtree cannot be run. ",

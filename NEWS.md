@@ -1,5 +1,18 @@
 # fcmsafety 0.1.6 (unreleased)
 
+## The Shiny inspector can now run the full screening workflow
+- New "Screen substances" panel in `launch_database_inspector()`: upload an
+  xlsx/csv substance list, run the whole pipeline (structure completion ->
+  regulatory matching -> toxicity grading), preview the Toxic_level
+  distribution and regulatory-hit counts, and download the styled xlsx report
+  or a CSV. The complete update -> import -> screen -> report workflow is now
+  available without leaving the GUI.
+- `assign_toxicity()` no longer aborts the whole screening when the automatic
+  Toxtree run fails (no Java, jar download failure, ...): regulatory matching
+  continues with blank Cramer columns - the same degradation policy already
+  used when the input has no SMILES column. Regression-tested with a mocked
+  failing run_toxtree.
+
 ## Share the seams between the SVHC line and the common pipeline
 - `canon_cell()` gains an explicit `sort_multiline` switch and the drifted
   private `canon()` copy inside `diff_svhc_data()` is gone: one

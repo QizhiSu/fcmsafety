@@ -180,3 +180,28 @@ test_that("missing cmr table degrades to '-' instead of failing", {
   unlink(db_path)
 })
 
+
+test_that("SMILES present + Toxtree run fails: degrades to matching-only (GUI 无 Java 场景)", {
+  db_path <- make_assign_tox_fixture()
+  d <- data.frame(
+    NAME = c("Hit compound", "Unknown compound"),
+    CAS = c("", ""),
+    SMILES = c("CCO", "c1ccccc1"),
+    InChIKey = c("AAAABBBBCCCCDD-UHFFFAOYSA-N", "ZZZZYYYYXXXXWW-VVHHHHHHHH-N"),
+    stringsAsFactors = FALSE
+  )
+  missing_tox <- tempfile(fileext = ".csv")   # does not exist
+
+  # run_toxtree 一旦失败（无 Java / jar 下载失败）不再拖垮整个筛查：
+  # 法规匹配照常，Cramer 列留空——与"无 SMILES 跳过分级"同一策略
+  testthat::local_mocked_bindings(
+    run_toxtree = function(data, output, ...) stop("Java not found (mocked)"),
+    .package = "fcmsafety"
+  )
+  res <- assign_toxicity(d, toxtree_result = missing_tox, db_path = db_path)
+
+  expect_s3_class(res, "data.frame")
+  expect_true(all(res$Cramer_rules == "-"))          # Cramer 留空 -> "-"
+  expect_identical(res$SVHC, c("Y", "-"))            # 法规匹配照常工作
+  unlink(db_path)
+})

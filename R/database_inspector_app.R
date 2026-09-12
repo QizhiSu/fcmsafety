@@ -1216,6 +1216,8 @@ launch_database_inspector <- function(port = 3838, launch_browser = TRUE) {
                    title = "Show database update history / 显示数据库更新日志"),
       actionButton("db_btn_tables", "📑 Database list",
                    title = "Show all database tables / 显示所有数据库表"),
+      actionButton("db_btn_screen", "🧪 Screen substances",
+                   title = "Upload a substance list, run regulatory matching + toxicity grading, export report / 上传物质清单，跑法规匹配、毒性定级并导出报告"),
       div(style = "flex-basis: 100%;",
         # 运行状态行：任务进行中显示当前库与序号，"页面还活着"的第一眼信号
         div(id = "quick_progress_line", class = "quick-progress-line", "就绪"),
@@ -1233,7 +1235,8 @@ launch_database_inspector <- function(port = 3838, launch_browser = TRUE) {
     tags$script(HTML("
       (function() {
         var QUICK_BTN_IDS = ['db_btn_status', 'db_btn_check', 'db_btn_apply',
-                             'db_btn_update', 'db_btn_history', 'db_btn_tables'];
+                             'db_btn_update', 'db_btn_history', 'db_btn_tables',
+                             'db_btn_screen'];
 
         function setBusy(busy, text) {
           QUICK_BTN_IDS.forEach(function(id) {
@@ -1596,7 +1599,8 @@ launch_database_inspector <- function(port = 3838, launch_browser = TRUE) {
       quick_lines = character(0), # 本轮任务的日志缓冲（同时实时推给页面）
       last_run_end = NULL,      # 上一轮结束时刻：积压点击守卫用（见 update_run_guard.R）
       report_summary = NULL,    # 最近一次预演/写入的按库汇总表
-      report_phase = "dry"      # 报告是预演还是写入结果
+      report_phase = "dry",     # 报告是预演还是写入结果
+      screen_result = NULL      # 最近一次筛查（run_screening）的结果表
     )
 
     # ---- 主题 / 语言切换 handler ----
@@ -2865,6 +2869,116 @@ launch_database_inspector <- function(port = 3838, launch_browser = TRUE) {
                             "联网更新 · 写入")
       show_update_report(res, phase = "write")
     })
+
+    # ============================================================
+    # 筛查面板：上传物质清单 → run_screening（补结构 + 匹配 + 定级）→
+    # 等级分布预览 + xlsx / csv 报告下载。
+    # 与一键操作共用 run_quick_task 的忙碌守卫 / 实时日志 / 防连点。
+    # 设计取舍：主数据表是"看库"的地方，筛查结果不往里灌——弹窗给
+    # 等级分布与命中概览，完整逐行结果（含 Toxic_level_basis）在导出的报告里。
+    # Toxtree 结果文件缺失时会现场自动运行（需 Java）；失败已降级为
+    # 仅法规匹配（见 direct_sql_toxicity.R），GUI 不会因此白跑。
+    # ============================================================
+    observeEvent(input$db_btn_screen, {
+      shiny::showModal(shiny::modalDialog(
+        title = "物质筛查（法规匹配 + 毒性定级）",
+        shiny::fileInput("screen_file", "物质清单文件（xlsx / csv）",
+                         accept = c(".xlsx", ".xls", ".csv"),
+                         buttonLabel = "选择文件…",
+                         placeholder = "尚未选择文件"),
+        HTML(paste0(
+          "<p style='font-size:12px;color:#6c757d;margin-top:2px;'>",
+          "列名自动识别（NAME/名称、SMILES、CAS、InChIKey 等常见写法均可）。<br>",
+          "已有 InChIKey 的行直接采用；只有名称 + SMILES 的行用本地 CDK 离线推导。<br>",
+          "Toxtree 结果缺失且带 SMILES 列时会现场自动运行（首次需下载约 81MB、需要 Java；",
+          "运行失败会自动降级为仅法规匹配，Cramer 列留空）。</p>")),
+        shiny::checkboxInput("screen_online", "本地推导失败的行联网查 PubChem 兜底（较慢）", FALSE),
+        shiny::checkboxInput("screen_group", "额外做组条目归属判定（较慢，默认关）", FALSE),
+        footer = shiny::tagList(
+          shiny::modalButton("取消"),
+          actionButton("db_confirm_screen", "开始筛查", class = "btn-primary")
+        )
+      ))
+    })
+
+    observeEvent(input$db_confirm_screen, {
+      shiny::removeModal()
+      uploaded <- if (!is.null(input$screen_file)) input$screen_file$datapath else NULL
+      if (is.null(uploaded) || !nzchar(uploaded)) {
+        showNotification("请先选择物质清单文件（xlsx / csv）。", type = "error")
+        return()
+      }
+      online <- isTRUE(input$screen_online)
+      with_group <- isTRUE(input$screen_group)
+      res <- run_quick_task(function() {
+        df <- rio::import(uploaded)
+        if (!is.data.frame(df) || nrow(df) == 0) {
+          stop("文件里没有可读的数据行")
+        }
+        run_screening(df, online = online, group_membership = with_group)
+      }, "物质筛查")
+      if (is.null(res)) return()   # 出错信息已在日志里给出
+      values$screen_result <- res
+      show_screen_result(res)
+    })
+
+    # 结果弹窗：等级分布 + 监管清单命中概览
+    show_screen_result <- function(res) {
+      lv <- if ("Toxic_level" %in% names(res)) res$Toxic_level else rep("-", nrow(res))
+      lv <- ifelse(is.na(lv) | lv == "", "-", lv)
+      dist <- as.data.frame(table(`Toxic_level` = factor(lv, levels = c("V", "IV", "III", "II", "I", "-"))),
+                            responseName = "行数")
+      hit_cols <- intersect(c("SVHC", "CMR", "CMR_suspect", "EDC", "IARC"), names(res))
+      hits <- do.call(rbind, lapply(hit_cols, function(cc) {
+        data.frame(清单 = cc, 命中行数 = sum(res[[cc]] == "Y", na.rm = TRUE))
+      }))
+      output$screen_dist_table <- shiny::renderTable(dist, striped = TRUE, hover = TRUE,
+                                                     bordered = TRUE, na = "", width = "100%")
+      output$screen_hit_table <- shiny::renderTable(hits, striped = TRUE, hover = TRUE,
+                                                    bordered = TRUE, na = "", width = "100%")
+      shiny::showModal(shiny::modalDialog(
+        title = "筛查完成",
+        size = "l",
+        easyClose = TRUE,
+        HTML(paste0("<p>共 <b>", nrow(res), "</b> 行物质。毒性等级分布（\"-\" = 无足够证据定级，不代表安全）：</p>")),
+        shiny::tableOutput("screen_dist_table"),
+        HTML("<p style='margin-top:10px;'>监管清单命中行数：</p>"),
+        shiny::tableOutput("screen_hit_table"),
+        tags$p(style = "color:#6c757d; font-size:12px; margin-top:8px;",
+               "完整逐行结果（含 Toxic_level_basis 定级依据、Unassigned / Issues 表）请下载报告查看。"),
+        footer = shiny::tagList(
+          shiny::downloadButton("screen_download_xlsx", "下载 xlsx 报告"),
+          shiny::downloadButton("screen_download_csv", "下载 CSV"),
+          shiny::modalButton("关闭")
+        )
+      ))
+    }
+
+    # 报告下载：xlsx 走 export_toxicity_report（4 张表带样式），csv 走 write.csv。
+    # results 保存在 values$screen_result，下载时 isolate 读取。
+    output$screen_download_xlsx <- shiny::downloadHandler(
+      filename = function() {
+        paste0("fcmsafety_screening_", format(Sys.time(), "%Y%m%d_%H%M%S"), ".xlsx")
+      },
+      content = function(file) {
+        res <- shiny::isolate(values$screen_result)
+        if (is.null(res)) stop("没有可下载的筛查结果")
+        export_toxicity_report(res, path = file)
+      },
+      contentType = "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"
+    )
+
+    output$screen_download_csv <- shiny::downloadHandler(
+      filename = function() {
+        paste0("fcmsafety_screening_", format(Sys.time(), "%Y%m%d_%H%M%S"), ".csv")
+      },
+      content = function(file) {
+        res <- shiny::isolate(values$screen_result)
+        if (is.null(res)) stop("没有可下载的筛查结果")
+        utils::write.csv(res, file, row.names = FALSE, fileEncoding = "UTF-8")
+      },
+      contentType = "text/csv"
+    )
 
     # Show database update history in a modal dialog
     observeEvent(input$db_btn_history, {
