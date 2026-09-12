@@ -5,10 +5,15 @@
 \alias{canon_cell}
 \title{单元格内容归一（diff 与变动明细共用）}
 \usage{
-canon_cell(v)
+canon_cell(v, sort_multiline = TRUE)
 }
 \arguments{
 \item{v}{字符向量}
+
+\item{sort_multiline}{多行单元格是否按行排序后比较。代码表列（GHS/H 码）
+保持默认 TRUE：集合相同即不算修改。SVHC 的 remarks 是散文式多行注释
+（行序有含义），diff_svhc_data 显式传 FALSE——归一策略在这里显式分叉，
+不要再拷贝一份残缺实现（2026-09-12 架构评审第 3 轮）。}
 }
 \value{
 归一后的字符向量
@@ -20,7 +25,7 @@ canon_cell(v)
 多行单元格按行排序。
 }
 \details{
-最后一条针对官方导出：同一组危险代码的排列顺序会变
+排序一步针对官方导出：同一组危险代码的排列顺序会变
 （GHS06/GHS08 与 GHS08/GHS06、H335/H372 与 H372/H335），集合相同就不算修改。
 代价是"纯换序"的改动不再报为 modified——对这些代码类列而言换序没有实质
 含义，可以接受。

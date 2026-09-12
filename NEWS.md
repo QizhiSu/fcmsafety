@@ -1,5 +1,20 @@
 # fcmsafety 0.1.6 (unreleased)
 
+## Share the seams between the SVHC line and the common pipeline
+- `canon_cell()` gains an explicit `sort_multiline` switch and the drifted
+  private `canon()` copy inside `diff_svhc_data()` is gone: one
+  canonicalization implementation, with the incremental line sorting
+  multi-line code lists (GHS/H codes, reorder = no change) and the SVHC line
+  not sorting (remarks is prose where line order carries meaning). The old
+  copy silently lacked the sort step - the same copy-and-drift pattern behind
+  the cmr_suspect false-removal incident.
+- Backup + update_history + change_log bookkeeping is now one shared
+  `record_update_ledger()` / `backup_db_file()` pair used by both
+  `write_changes_to_db()` and `write_svhc_to_db()`; the per-line differences
+  (source_file, user_notes, key style) are parameters.
+- `resolve_svhc_db_path()` (a verbatim copy of `.resolve_db_path()`) is
+  deleted; its callers use the canonical helper.
+
 ## One source of truth for per-source manual-list detection
 - `manual_candidates` (the file names probed as hand-dropped new lists) now
   live in the `DB_SOURCES` registry next to the fetch fallback lists, with the

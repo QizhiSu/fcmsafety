@@ -543,16 +543,20 @@ key_of_df <- function(df, key_col, fallback_col = NULL) {
 #' 三种写法）、去首尾空白、占位符（"-" 等，同 key_placeholder）视为"无值"、
 #' 多行单元格按行排序。
 #'
-#' 最后一条针对官方导出：同一组危险代码的排列顺序会变
+#' 排序一步针对官方导出：同一组危险代码的排列顺序会变
 #' （GHS06/GHS08 与 GHS08/GHS06、H335/H372 与 H372/H335），集合相同就不算修改。
 #' 代价是"纯换序"的改动不再报为 modified——对这些代码类列而言换序没有实质
 #' 含义，可以接受。
 #'
 #' @param v 字符向量
+#' @param sort_multiline 多行单元格是否按行排序后比较。代码表列（GHS/H 码）
+#'   保持默认 TRUE：集合相同即不算修改。SVHC 的 remarks 是散文式多行注释
+#'   （行序有含义），diff_svhc_data 显式传 FALSE——归一策略在这里显式分叉，
+#'   不要再拷贝一份残缺实现（2026-09-12 架构评审第 3 轮）。
 #' @return 归一后的字符向量
 #' @keywords internal
 #' @encoding UTF-8
-canon_cell <- function(v) {
+canon_cell <- function(v, sort_multiline = TRUE) {
   v <- as.character(v)
   v[is.na(v)] <- ""
   Encoding(v) <- "UTF-8"
@@ -562,11 +566,13 @@ canon_cell <- function(v) {
   v <- gsub("\n+", "\n", v)
   v <- trimws(v)
   v[v %in% key_placeholder] <- ""
-  multi <- grepl("\n", v, fixed = TRUE)
-  if (any(multi)) {
-    v[multi] <- vapply(v[multi], function(s) {
-      paste(sort(strsplit(s, "\n", fixed = TRUE)[[1]]), collapse = "\n")
-    }, character(1), USE.NAMES = FALSE)
+  if (isTRUE(sort_multiline)) {
+    multi <- grepl("\n", v, fixed = TRUE)
+    if (any(multi)) {
+      v[multi] <- vapply(v[multi], function(s) {
+        paste(sort(strsplit(s, "\n", fixed = TRUE)[[1]]), collapse = "\n")
+      }, character(1), USE.NAMES = FALSE)
+    }
   }
   v
 }
@@ -1284,6 +1290,66 @@ drop_kept_removals <- function(changes, kept, key_col, fallback_col = NULL) {
 
 # ---- 入库 ①：写业务表（事务 + 备份 + 记 update_history） ---------------------
 
+#' 数据库文件备份（write_changes_to_db / write_svhc_to_db 共用）
+#'
+#' @param db_file 数据库文件路径；NULL/空/不存在则静默跳过
+#' @keywords internal
+#' @encoding UTF-8
+backup_db_file <- function(db_file) {
+  if (is.null(db_file) || !nzchar(db_file) || !file.exists(db_file)) {
+    return(invisible(NULL))
+  }
+  bak_dir <- file.path(dirname(db_file), "..", "backups")
+  dir.create(bak_dir, showWarnings = FALSE, recursive = TRUE)
+  bak <- file.path(bak_dir, paste0("fcmsafety_",
+                                   format(Sys.time(), "%Y%m%d_%H%M%S"), ".db"))
+  if (file.copy(db_file, bak)) message("   Backup saved: ", bak)
+  invisible(NULL)
+}
+
+#' 账本写入（write_changes_to_db / write_svhc_to_db 共用）
+#'
+#' update_history 总数 + change_log 明细。两条入库线（公共增量线与 SVHC
+#' 独立线）的账本约定必须永远一致，实现只留这一份；线间差异全部走参数：
+#' source_file / user_notes 是字符串，明细层的键风格经 ... 透传给
+#' log_change_detail（公共线传 key_col/fallback_col，SVHC 传
+#' key_fn/compare_cols）。
+#'
+#' @param con 已打开的数据库连接
+#' @param db_name 库名
+#' @param changes diff 结果（added/removed/modified）
+#' @param n_added,n_removed,n_modified 变更计数
+#' @param old_df 修改前快照（仅 modified > 0 时需要）
+#' @param source_file 记入 update_history 的来源文件名
+#' @param user_notes 记入 update_history 的备注
+#' @param ... 透传给 log_change_detail 的键风格参数
+#' @keywords internal
+#' @encoding UTF-8
+record_update_ledger <- function(con, db_name, changes, n_added, n_removed,
+                                 n_modified, old_df = NULL, source_file,
+                                 user_notes, ...) {
+  if (!DBI::dbExistsTable(con, "update_history")) return(invisible(NULL))
+  tryCatch({
+    DBI::dbExecute(con,
+      paste0("INSERT INTO update_history (database_name, update_type, ",
+             "records_added, records_removed, records_modified, source_file, ",
+             "user_notes, success) VALUES (?, 'incremental_auto', ?, ?, ?, ?, ?, 1)"),
+      params = list(db_name, n_added, n_removed, n_modified, source_file, user_notes))
+    history_id <- DBI::dbGetQuery(con, "SELECT last_insert_rowid() AS id")$id[1]
+    # 明细层：把"具体谁变了"写入 change_log（表存在才写；失败仅提示，
+    # 不影响数据入库结果——明细是顺手留痕，不是主流程）
+    if (!is.na(history_id) && DBI::dbExistsTable(con, "change_log")) {
+      tryCatch(
+        log_change_detail(con, history_id, db_name, changes,
+                          old_df = old_df, ...),
+        error = function(e) {
+          message("   (change_log detail write skipped: ", conditionMessage(e), ")")
+        }
+      )
+    }
+  }, error = function(e) message("   (update_history write skipped: ", e$message, ")"))
+}
+
 #' 把 diff 结果写入 SQLite（通用：事务 + 备份 + update_history）
 #'
 #' 适用于键完全唯一的库（cmr/iarc/eu_sml），删除 removed/modified 旧行、
@@ -1311,14 +1377,7 @@ write_changes_to_db <- function(db_name, changes, key_col, fallback_col = NULL, 
   }
 
   if (isTRUE(backup)) {
-    db_file <- con@dbname
-    if (!is.null(db_file) && nzchar(db_file) && file.exists(db_file)) {
-      bak_dir <- file.path(dirname(db_file), "..", "backups")
-      dir.create(bak_dir, showWarnings = FALSE, recursive = TRUE)
-      bak <- file.path(bak_dir, paste0("fcmsafety_",
-                                       format(Sys.time(), "%Y%m%d_%H%M%S"), ".db"))
-      if (file.copy(db_file, bak)) message("   Backup saved: ", bak)
-    }
+    backup_db_file(con@dbname)
   }
 
   # 修改前给旧表拍快照：仅当存在 modified 时抓取，供 change_log 逐字段对比
@@ -1369,26 +1428,11 @@ write_changes_to_db <- function(db_name, changes, key_col, fallback_col = NULL, 
     }
   })
 
-  if (DBI::dbExistsTable(con, "update_history")) {
-    tryCatch({
-      DBI::dbExecute(con,
-        "INSERT INTO update_history (database_name, update_type, records_added, records_removed, records_modified, source_file, user_notes, success)
-         VALUES (?, 'incremental_auto', ?, ?, ?, 'incremental_update.R', 'Incremental update with diff confirmation', 1)",
-        params = list(db_name, n_added, n_removed, n_modified))
-      history_id <- DBI::dbGetQuery(con, "SELECT last_insert_rowid() AS id")$id[1]
-      # 明细层：把"具体谁变了"写入 change_log（表存在才写；失败仅提示，
-      # 不影响数据入库结果——明细是顺手留痕，不是主流程）
-      if (!is.na(history_id) && DBI::dbExistsTable(con, "change_log")) {
-        tryCatch(
-          log_change_detail(con, history_id, db_name, changes, old_snapshot,
-                            key_col = key_col, fallback_col = fallback_col),
-          error = function(e) {
-            message("   (change_log detail write skipped: ", conditionMessage(e), ")")
-          }
-        )
-      }
-    }, error = function(e) message("   (update_history write skipped: ", e$message, ")"))
-  }
+  record_update_ledger(con, db_name, changes, n_added, n_removed, n_modified,
+                       old_df = old_snapshot,
+                       source_file = "incremental_update.R",
+                       user_notes = "Incremental update with diff confirmation",
+                       key_col = key_col, fallback_col = fallback_col)
 
   message("   DB write done: +", n_added, " / -", n_removed, " / ~", n_modified)
   list(records_added = n_added, records_removed = n_removed, records_modified = n_modified)

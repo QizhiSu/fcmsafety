@@ -60,23 +60,6 @@ svhc_key_of <- function(df) {
                 ifelse(!is.na(nm) & nzchar(nm), paste0("NAME:", nm), NA_character_)))
 }
 
-#' 解析数据库文件实际路径（与 get_db_connection 的逻辑一致）
-#'
-#' @param db_path 用户传入的路径或 NULL
-#' @return 数据库文件绝对路径
-#' @keywords internal
-#' @encoding UTF-8
-resolve_svhc_db_path <- function(db_path = NULL) {
-  if (is.null(db_path)) {
-    if (dir.exists(file.path(getwd(), "inst"))) {
-      db_path <- file.path(getwd(), "inst", "fcmsafety.db")
-    } else {
-      db_path <- file.path(tools::R_user_dir("fcmsafety", which = "data"), "fcmsafety.db")
-    }
-  }
-  db_path
-}
-
 # ---- 标准化：源表 -> 库表蛇形列 ---------------------------------------------
 
 #' 解析 SVHC 日期为数据库统一格式 dd/mm/yyyy
@@ -506,22 +489,9 @@ diff_svhc_data <- function(new_df, db_path = NULL) {
   # 内容比较（仅核心列）
   modified_keys <- character(0)
   if (length(common_keys) > 0 && length(content_cols) > 0) {
-    canon <- function(v) {
-      v <- as.character(v)
-      v[is.na(v)] <- ""
-      Encoding(v) <- "UTF-8"
-      # 统一换行符，避免 xlsx 多行单元格读取差异导致误报 modified
-      v <- gsub("\r\r\n", "\n", v)
-      v <- gsub("\r\n", "\n", v)
-      v <- gsub("\r", "\n", v)
-      v <- gsub("\n+", "\n", v)
-      v <- trimws(v)
-      # 占位符（"-"、en-dash 等，同 key_placeholder）视为"无值"：
-      # 同一事实在不同版本源里可能写成 "-" 或空（如库内透传的 "-" vs
-      # normalize 后转 NA 的新数据），归一为空避免假 modified
-      v[v %in% key_placeholder] <- ""
-      v
-    }
+    # 单元格归一复用公共线的 canon_cell，排序步显式关掉：remarks 是散文式
+    # 多行注释（当前库内即有 4 行含换行），行序有含义——与 GHS/H 码这类
+    # "换序无含义"的代码表列不同。见 canon_cell 的 sort_multiline 参数。
     # 行签名：CAS 列先归一化再参与比较，避免 0266309-43-7 vs 266309-43-7
     # 这类前导 0 格式差异被误判为 modified
     row_sig <- function(r) {
@@ -530,7 +500,7 @@ diff_svhc_data <- function(new_df, db_path = NULL) {
       if (!is.null(nm) && "cas_no" %in% nm) {
         r[nm == "cas_no"] <- canonicalize_cas(as.character(r[nm == "cas_no"]))
       }
-      paste(canon(r), collapse = "\x01")
+      paste(canon_cell(r, sort_multiline = FALSE), collapse = "\x01")
     }
     cur_by_key <- split(seq_len(nrow(cur_df)), cur_keys)
     new_by_key <- split(seq_len(nrow(new_df)), new_keys)
@@ -581,15 +551,9 @@ write_svhc_to_db <- function(new_df, changes, db_path = NULL, backup = TRUE) {
     return(list(records_added = 0, records_removed = 0, records_modified = 0))
   }
 
-  # 备份
+  # 备份（路径解析用公共线的 .resolve_db_path，不再维护第三份拷贝）
   if (isTRUE(backup)) {
-    db_file <- resolve_svhc_db_path(db_path)
-    if (file.exists(db_file)) {
-      bak_dir <- file.path(dirname(db_file), "..", "backups")
-      dir.create(bak_dir, showWarnings = FALSE, recursive = TRUE)
-      bak <- file.path(bak_dir, paste0("fcmsafety_", format(Sys.time(), "%Y%m%d_%H%M%S"), ".db"))
-      if (file.copy(db_file, bak)) message("   Backup saved: ", bak)
-    }
+    backup_db_file(.resolve_db_path(db_path))
   }
 
   # 修改前给旧表拍快照：仅当存在 modified 时抓取，供 change_log 逐字段对比
@@ -648,26 +612,13 @@ write_svhc_to_db <- function(new_df, changes, db_path = NULL, backup = TRUE) {
     }
   })
 
-  # 写 update_history（若存在）
-  if (DBI::dbExistsTable(con, "update_history")) {
-    tryCatch({
-      DBI::dbExecute(con,
-        "INSERT INTO update_history (database_name, update_type, records_added, records_removed, records_modified, source_file, user_notes, success)
-         VALUES ('svhc', 'incremental_auto', ?, ?, ?, 'auto_update_svhc.R', 'Auto update with diff confirmation', 1)",
-        params = list(n_added, n_removed, n_modified))
-      history_id <- DBI::dbGetQuery(con, "SELECT last_insert_rowid() AS id")$id[1]
-      # 明细层：把"具体谁变了"写入 change_log（表存在才写；失败仅提示）
-      if (!is.na(history_id) && DBI::dbExistsTable(con, "change_log")) {
-        tryCatch(
-          log_change_detail(con, history_id, "svhc", changes, old_snapshot,
-                            key_fn = svhc_key_of, compare_cols = svhc_content_columns),
-          error = function(e) {
-            message("   (change_log detail write skipped: ", conditionMessage(e), ")")
-          }
-        )
-      }
-    }, error = function(e) message("   (update_history write skipped: ", e$message, ")"))
-  }
+  # 账本（update_history + change_log）走与公共线共享的 record_update_ledger；
+  # SVHC 的键风格差异（key_fn/compare_cols）经 ... 透传
+  record_update_ledger(con, "svhc", changes, n_added, n_removed, n_modified,
+                       old_df = old_snapshot,
+                       source_file = "auto_update_svhc.R",
+                       user_notes = "Auto update with diff confirmation",
+                       key_fn = svhc_key_of, compare_cols = svhc_content_columns)
 
   message("   DB write done: +", n_added, " / -", n_removed, " / ~", n_modified)
   list(records_added = n_added, records_removed = n_removed, records_modified = n_modified)
@@ -824,7 +775,7 @@ update_svhc_auto <- function(source = c("auto", "wikipedia", "local", "echa"),
       names(xlsx_df)[names(xlsx_df) == "Formula"] <- "MolecularFormula"
       names(xlsx_df)[names(xlsx_df) == "SMILES"] <- "IsomericSMILES"
       xlsx_df[["IUPACName"]] <- NULL
-      xlsx_path <- file.path(dirname(resolve_svhc_db_path(db_path)), "..", "inst", "svhc_meta.xlsx")
+      xlsx_path <- file.path(dirname(.resolve_db_path(db_path)), "..", "inst", "svhc_meta.xlsx")
       rio::export(xlsx_df, xlsx_path, overwrite = TRUE)
       message("   svhc_meta.xlsx synced: ", xlsx_path)
     }, error = function(e) warning("Could not sync svhc_meta.xlsx: ", e$message))
