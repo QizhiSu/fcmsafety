@@ -13,7 +13,9 @@ fetch_svhc_data(
 )
 }
 \arguments{
-\item{source}{"auto"（默认，echa -> wikipedia -> local）、"wikipedia"、"local"、"echa"}
+\item{source}{"auto"（默认，echa -> local）、"wikipedia"、"local"、"echa"。
+Wikipedia 镜像不是官方源（且部分网络环境不可达），不进 auto 回退链，
+仅在显式 source = "wikipedia" 时使用}
 
 \item{inst_dir}{inst 目录}
 

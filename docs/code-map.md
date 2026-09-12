@@ -135,6 +135,11 @@ res <- assign_toxicity(x, output_file = "report.xlsx")
 7. **新增 roxygen 块以 `#' @encoding UTF-8` 结尾，且必须在块尾**，
    护栏是 `tests/testthat/test-rd-docs.R`。
 8. **不要用 `git stash` / `git rm`**（safe-delete 钩子会清空 `.git/objects`）。
+9. **单库 `update_*_auto()` 默认 `source="local"`（读 inst/ 本地文件，不联网），
+   总调度 `update_database_auto()` 默认 `source="download"`（联网下载）**——
+   语义相反是有意的：一键更新就该联网，单独跑某个库则默认离线。别"顺手统一"。
+10. **SVHC 的 auto 回退链只有 echa -> local**。Wikipedia 镜像非官方源，
+    仅显式 `source="wikipedia"` 时可用，不要加回自动链。
 
 ---
 

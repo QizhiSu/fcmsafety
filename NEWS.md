@@ -1,5 +1,23 @@
 # fcmsafety 0.1.6 (unreleased)
 
+## Harden the regulatory-database downloaders
+- `download_clp()` plain-HTTP path now sends the full browser-like header set
+  (ECHA's Azure WAF keys on `Accept: text/html`; the bare package UA was 403'd
+  on every attempt) and retries with backoff, mirroring what already works for
+  EUR-Lex. The Annex VI xlsx link is picked by highest ATP revision instead of
+  "last link on the page", and absolute hrefs no longer produce a broken URL.
+- The headless-browser fallback resolves `node` across platforms
+  (`FCMSAFETY_NODE_BIN` -> `PATH` -> the original dev machine's bundled path);
+  the Node script likewise tries common Chrome locations per OS and a
+  `require.resolve("playwright-core")` before falling back to the bundled path.
+- SVHC fetch chain "auto" is now ECHA -> local file. The Wikipedia mirror is no
+  longer an automatic fallback (non-authoritative source, unreachable on some
+  networks) and remains available as an explicit `source = "wikipedia"`.
+- `download_iarc()` now validates the parsed table beyond the 500-row floor:
+  required columns present, `Group` values restricted to 1/2A/2B/3, basic CAS
+  format sampling, and a loud warning when the row count deviates >10% from
+  the last good export.
+
 ## Stop missing group entries that carry no group word in their name
 - Group entries were selected by a single name regex (`compounds`, `salts`,
   `metallic`, `dust`, …), so every class entry written as a plain plural noun

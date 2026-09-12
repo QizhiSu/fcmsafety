@@ -111,42 +111,79 @@ download_clp <- function(out = paste0(getwd(), "/inst/clp.xlsx")) {
 #' fallback can catch its errors cleanly).
 #' @noRd
 download_clp_http <- function(url, out) {
-  # ECHA's Azure WAF returns 403 + JS challenge to automated requests. Probe
-  # the page first so we can give a clear error instead of the cryptic
-  # "cannot open the connection" from rvest::read_html().
-  probe <- httr::GET(url, httr::user_agent("fcmsafety R package"),
-                     httr::timeout(60))
-  code <- httr::status_code(probe)
-  if (!identical(code, 200L)) {
-    body <- tryCatch(httr::content(probe, as = "text", encoding = "UTF-8"),
-                     error = function(e) "")
-    if (grepl("Azure WAF|challenge|appgw_azwaf", body, ignore.case = TRUE)) {
-      stop("ECHA page is blocked by Azure WAF (HTTP 403 JS challenge).")
+  # ECHA's Azure WAF returns 403 + JS challenge to automated requests, and a
+  # bare "fcmsafety R package" UA with no Accept header was flagged on every
+  # attempt (observed 2026-09). Same hardening as fetch_eurlex_page(), where it
+  # demonstrably passes: a full browser-like header set (the WAF rule keys on
+  # Accept: text/html) plus retries with increasing sleeps so a transient
+  # block can clear on its own.
+  browser_headers <- c(
+    "Accept" = "text/html,application/xhtml+xml,application/xml;q=0.9,image/avif,image/webp,*/*;q=0.8",
+    "Accept-Language" = "en-US,en;q=0.9",
+    "Upgrade-Insecure-Requests" = "1",
+    "Sec-Fetch-Dest" = "document",
+    "Sec-Fetch-Mode" = "navigate",
+    "Sec-Fetch-Site" = "none"
+  )
+  ua <- paste("Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36",
+              "(KHTML, like Gecko) Chrome/126.0.0.0 Safari/537.36")
+
+  page <- ""
+  for (i in seq_len(3L)) {
+    resp <- tryCatch(
+      httr::GET(url, httr::add_headers(.headers = browser_headers),
+                httr::user_agent(ua), httr::timeout(60)),
+      error = function(e) NULL
+    )
+    if (!is.null(resp) && identical(httr::status_code(resp), 200L)) {
+      page <- httr::content(resp, as = "text", encoding = "UTF-8")
+      break
     }
-    stop("ECHA page returned HTTP ", code, ".")
+    if (i < 3L) {
+      code <- if (is.null(resp)) "connection error" else
+        as.character(httr::status_code(resp))
+      delay <- 15L * 2^(i - 1L)
+      message(sprintf("   ECHA page blocked (HTTP %s); retrying in %ds (attempt %d/3)...",
+                      code, delay, i + 1L))
+      Sys.sleep(delay)
+    }
+  }
+  if (!nzchar(page)) {
+    stop("ECHA page is blocked by Azure WAF (403 JS challenge) or unreachable; ",
+         "plain-HTTP download gave up after 3 attempts.")
   }
 
-  url_list <- url %>%
-    rvest::read_html() %>%
-    rvest::html_nodes("a") %>%
-    rvest::html_attr("href") %>%
-    dplyr::as_tibble() %>%
+  links <- rvest::html_attr(rvest::html_nodes(rvest::read_html(page), "a"), "href")
+  url_list <- dplyr::as_tibble(links) %>%
     dplyr::filter(stringr::str_detect(value, "annex_vi_clp"))
 
   # Deletion protection: no matching link means the ECHA page structure changed.
   if (nrow(url_list) == 0L) {
     stop("CLP: no annex_vi_clp download link found on the ECHA page; the page structure may have changed.")
   }
-  file_url <- paste0("https://echa.europa.eu",
-                     dplyr::pull(url_list, value)[nrow(url_list)])
+  # Pick the highest ATP revision rather than the last link on the page: ECHA
+  # may reorder links, and check_xlsx() below cannot tell an outdated file
+  # from a current one.
+  atp <- suppressWarnings(as.integer(
+    sub(".*atp([0-9]+).*", "\\1", url_list$value, ignore.case = TRUE)))
+  href <- if (any(!is.na(atp))) {
+    url_list$value[which.max(atp)]
+  } else {
+    url_list$value[nrow(url_list)]
+  }
+  file_url <- if (grepl("^https?://", href)) {
+    href
+  } else {
+    paste0("https://echa.europa.eu", href)
+  }
 
   # Download and verify it is a real xlsx (zip archive, "PK" magic bytes) rather
   # than an ECHA error/HTML page.
   resp <- httr::GET(
     file_url,
     httr::write_disk(out, overwrite = TRUE),
-    httr::timeout(60),
-    httr::user_agent("fcmsafety R package")
+    httr::timeout(120),
+    httr::user_agent(ua)
   )
   if (!identical(httr::status_code(resp), 200L)) {
     unlink(out)
@@ -182,12 +219,17 @@ check_xlsx <- function(path, what) {
 #'   FCMSAFETY_CHROME     Chrome executable path (passed to the node script)
 #' @noRd
 download_clp_via_browser <- function(out) {
-  node <- Sys.getenv(
-    "FCMSAFETY_NODE_BIN",
-    unset = "C:/Users/13432/.workbuddy/binaries/node/versions/22.22.2-2/node.exe"
-  )
+  # Resolution order: explicit env var -> node on PATH -> the path provisioned
+  # on the original dev machine (kept last so that machine keeps working
+  # unmodified).
+  node <- Sys.getenv("FCMSAFETY_NODE_BIN")
+  if (!nzchar(node)) node <- Sys.which("node")
+  if (!nzchar(node)) {
+    node <- "C:/Users/13432/.workbuddy/binaries/node/versions/22.22.2-2/node.exe"
+  }
   if (!file.exists(node)) {
-    stop("node.exe not found at ", node, " (set FCMSAFETY_NODE_BIN to override).")
+    stop("node not found (looked at FCMSAFETY_NODE_BIN, PATH, and the bundled ",
+         "default path). Install Node.js or set FCMSAFETY_NODE_BIN.")
   }
   script <- file.path(getwd(), "tools", "echacl_download.cjs")
   if (!file.exists(script)) {
@@ -655,6 +697,42 @@ download_iarc <- function(out = paste0(getwd(), "/inst/iarc.xlsx")) {
   # Guard against a silently-empty parse (deletion protection).
   if (!is.data.frame(tbl) || nrow(tbl) < 500L) {
     stop("IARC: parsed fewer than 500 agents; source structure may have changed, please review.")
+  }
+
+  # Field-level guards: a drifted bundle can still parse to plenty of rows with
+  # wrong contents, which the row-count guard alone cannot catch.
+  missing_cols <- setdiff(c("CAS No.", "Agent", "Group"), names(tbl))
+  if (length(missing_cols) > 0L) {
+    stop("IARC: parsed table lacks column(s): ", paste(missing_cols, collapse = ", "),
+         "; source structure may have changed, please review.")
+  }
+  groups <- trimws(as.character(tbl$Group))
+  groups <- groups[!is.na(groups) & nzchar(groups)]
+  bad_groups <- setdiff(unique(groups), c("1", "2A", "2B", "3"))
+  if (length(bad_groups) > 0L) {
+    stop("IARC: unexpected Group value(s): ", paste(bad_groups, collapse = ", "),
+         "; source structure may have changed, please review.")
+  }
+  cas <- trimws(as.character(tbl[["CAS No."]]))
+  cas <- cas[!is.na(cas)]
+  cas <- cas[nzchar(cas)]
+  cas_ok <- grepl("^[0-9]{2,7}-[0-9]{2}-[0-9]$", cas)
+  if (length(cas) > 50L && mean(cas_ok) < 0.95) {
+    stop(sprintf("IARC: %.1f%% of non-blank CAS numbers fail the basic format ",
+                 100 * (1 - mean(cas_ok))),
+         "check; source structure may have changed, please review.")
+  }
+
+  # Snapshot guard: the write path downstream already blocks suspicious diffs
+  # (removed requires manual confirmation; auto_apply caps at max_auto_changes),
+  # so a shifted row count only needs to be loud, not fatal.
+  if (file.exists(out)) {
+    old <- tryCatch(rio::import(out), error = function(e) NULL)
+    if (is.data.frame(old) && nrow(old) >= 500L &&
+        (nrow(tbl) < 0.9 * nrow(old) || nrow(tbl) > 1.1 * nrow(old))) {
+      message("   ! IARC: parsed ", nrow(tbl), " agents vs ", nrow(old),
+              " in the last good export (>10% shift); review the diff carefully.")
+    }
   }
 
   rio::export(tbl, out)

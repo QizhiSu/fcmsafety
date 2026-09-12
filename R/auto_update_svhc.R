@@ -388,11 +388,13 @@ fetch_svhc_local <- function(inst_dir = file.path(getwd(), "inst")) {
   best
 }
 
-# ---- 源分发：auto -> echa -> wikipedia -> local（依次尝试） ------------------
+# ---- 源分发：auto -> echa -> local（依次尝试；wikipedia 仅显式指定时用） -----
 
 #' SVHC 数据源分发
 #'
-#' @param source "auto"（默认，echa -> wikipedia -> local）、"wikipedia"、"local"、"echa"
+#' @param source "auto"（默认，echa -> local）、"wikipedia"、"local"、"echa"。
+#'   Wikipedia 镜像不是官方源（且部分网络环境不可达），不进 auto 回退链，
+#'   仅在显式 source = "wikipedia" 时使用
 #' @param inst_dir inst 目录
 #' @param new_file 显式本地文件路径（优先于 source 分发直接读取；
 #'   用于 check_manual_lists() 等场景精确消费某个手动放入的清单文件）
@@ -432,13 +434,11 @@ fetch_svhc_data <- function(source = c("auto", "wikipedia", "local", "echa"),
     return(fetch_svhc_local(inst_dir))
   }
 
-  # auto: echa -> wikipedia -> local
+  # auto: echa -> local。Wikipedia 不进自动回退链（非官方源，且部分网络
+  # 环境不可达），仅显式 source = "wikipedia" 时使用。
   errs <- character(0)
   tryCatch(return(fetch_svhc_data("echa", inst_dir = inst_dir)), error = function(e) {
     errs <<- c(errs, paste("echa:", conditionMessage(e)))
-  })
-  tryCatch(return(fetch_svhc_wikipedia(wikipedia_url)), error = function(e) {
-    errs <<- c(errs, paste("wikipedia:", conditionMessage(e)))
   })
   tryCatch(return(fetch_svhc_local(inst_dir)), error = function(e) {
     errs <<- c(errs, paste("local:", conditionMessage(e)))

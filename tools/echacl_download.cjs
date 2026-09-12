@@ -7,15 +7,66 @@
 //   FCMSAFETY_CHROME   Chrome/Chromium executable path
 //   FCMSAFETY_PW_MODULE  playwright-core module dir (must contain package.json)
 const path = require("path");
+const fs = require("fs");
 
+function firstExisting(paths) {
+  for (const p of paths) {
+    try {
+      if (p && fs.existsSync(p)) return p;
+    } catch (e) {
+      /* ignore */
+    }
+  }
+  return "";
+}
+
+// Chrome: env override -> per-OS common locations -> the original dev
+// machine's bundled path (kept last so that machine keeps working as-is).
 const CHROME =
   process.env.FCMSAFETY_CHROME ||
-  "C:\\Users\\13432\\.agent-browser\\browsers\\chrome-152.0.7977.75\\chrome.exe";
-const PW_MODULE =
-  process.env.FCMSAFETY_PW_MODULE ||
-  "C:\\Users\\13432\\.workbuddy\\binaries\\node\\workspace\\node_modules\\playwright-core";
+  firstExisting([
+    "C:\\Users\\13432\\.agent-browser\\browsers\\chrome-152.0.7977.75\\chrome.exe",
+    "/Applications/Google Chrome.app/Contents/MacOS/Google Chrome",
+    "/Applications/Chromium.app/Contents/MacOS/Chromium",
+    "/usr/bin/google-chrome",
+    "/usr/bin/google-chrome-stable",
+    "/usr/bin/chromium-browser",
+    "/usr/bin/chromium",
+  ]);
+
+// playwright-core: env override -> resolvable from this script's own module
+// tree / global install -> the original dev machine's path.
+function resolvePwModule() {
+  if (process.env.FCMSAFETY_PW_MODULE) return process.env.FCMSAFETY_PW_MODULE;
+  try {
+    // require.resolve() lands on the module entry file; requiring the entry
+    // file directly is equivalent to requiring the module dir, but keep the
+    // dir form for compatibility with require(PW_MODULE) below.
+    return path.dirname(require.resolve("playwright-core"));
+  } catch (e) {
+    /* not installed here */
+  }
+  return firstExisting([
+    "C:\\Users\\13432\\.workbuddy\\binaries\\node\\workspace\\node_modules\\playwright-core",
+  ]);
+}
+const PW_MODULE = resolvePwModule();
+
+if (!CHROME) {
+  console.error(
+    "Chrome/Chromium not found. Install it or set FCMSAFETY_CHROME to the " +
+      "browser executable path, then retry."
+  );
+  process.exit(2);
+}
+if (!PW_MODULE) {
+  console.error(
+    "playwright-core not found. Install it (npm install playwright-core) or " +
+      "set FCMSAFETY_PW_MODULE to the module directory, then retry."
+  );
+  process.exit(2);
+}
 const { chromium } = require(PW_MODULE);
-const fs = require("fs");
 const URL = "https://echa.europa.eu/information-on-chemicals/annex-vi-to-clp";
 
 const out = process.argv[2];

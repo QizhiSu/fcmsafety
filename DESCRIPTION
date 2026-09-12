@@ -36,3 +36,4 @@ Suggests:
 URL: https://github.com/QizhiSu/fcmsafety
 BugReports: https://github.com/QizhiSu/fcmsafety/issues
 Config/roxygen2/version: 8.1.0
+RoxygenNote: 7.3.2

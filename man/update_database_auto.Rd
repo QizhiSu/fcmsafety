@@ -25,7 +25,7 @@ c("cmr", "cmr_suspect", "iarc", "eu_sml", "svhc") 的任意子集}
 \item{source}{4 个公共源（cmr/cmr_suspect/iarc/eu_sml）的取数方式：
 "download"（联网下载最新，默认）或 "local"（用 inst/ 现有文件）}
 
-\item{svhc_source}{SVHC 的取数方式："auto"（默认，ECHA->维基->本地）、
+\item{svhc_source}{SVHC 的取数方式："auto"（默认，ECHA->本地）、
 "wikipedia"、"local"、"echa"}
 
 \item{interactive}{是否逐库交互确认（默认 FALSE）}
@@ -61,7 +61,9 @@ update_iarc_auto / update_eu_sml_auto / update_svhc_auto），本函数只负责
 但子函数自带的"出现 removed 强制人工确认"安全阀仍生效——有清单移除的库
 不会自动入库，会在汇总表里标 failed 并写明原因。
 \item 联网取数：4 个公共源 source = "download"（重新下载最新清单），SVHC 走
-svhc_source = "auto"（ECHA 官网 -> 维基兜底 -> 本地）。
+svhc_source = "auto"（ECHA 官网 -> 本地兜底）。注意默认语义与单库函数
+相反：各 update_*_auto() 单独调用时默认 source = "local"（读 inst/ 现有
+文件、不联网），只有本总入口默认联网下载。
 \item 单库失败不中断：某库抓取失败只在该行记录错误，其余库照常跑完。
 }
 }
