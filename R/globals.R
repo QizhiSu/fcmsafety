@@ -18,19 +18,18 @@
 # =============================================================================
 
 utils::globalVariables(c(
-  ".", "CID", "value", "Hazard Statement Code(s)", "<<-",
+  ".", "CID", "value", "Hazard Statement Code(s)",
   "FCM substance No", "Group Restriction No", "InChIKey",
-  "IsomericSMILES", "NAME", "CAS", "SMILES", "iarc_meta",
+  "IsomericSMILES", "NAME", "CAS", "SMILES",
   "Flavornet", "CAS_retrieved", "ExactMass", "Cramer_rules",
   "Toxic_level", "Toxic_level_basis",
   "Group_hits", "Group_IARC", "Group_review",
-  "eu_sml_meta", "china_sml_meta", "SML", "SML_group",
+  "SML", "SML_group",
   "SML\r\n                     [mg/kg]",
   "SML (T)\r\n                     [mg/kg]",
   "SML(T)\r\n                     [mg/kg]\r\n                     (Group restriction No)",
   "Formula", "ExactMass", "MolecularFormula",
   # 数据库加载到全局环境的对象 + 元数据对象
   "svhc", "cmr", "cmr_suspect", "iarc", "eu_sml", "eu_sml_group",
-  "edc", "china_sml", "China_SML", "China_SML_group",
-  "svhc_meta", "cmr_meta", "cmr_suspect_meta", "edc_meta"
+  "edc", "china_sml", "China_SML"
 ))

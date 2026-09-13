@@ -1,7 +1,7 @@
 # 代码地图（code map）
 
 给"想改点什么"的人用。**结论先行**：绝大多数需求只在 1-2 个文件里，
-不必通读 16 个 R 文件。
+不必通读 17 个 R 文件。
 
 > 行号会随后续改动漂移。**优先按函数名搜索**，行号只用来估算距离。
 > 每个文件内部都有 `# ---- 分区名 ----` 标记，用编辑器的"转到符号"或
@@ -37,7 +37,7 @@ res <- assign_toxicity(x, output_file = "report.xlsx")
 ## 2. 端到端数据流
 
 ```
-   官方源（ECHA / EUR-Lex / IARC / Wikipedia）
+   官方源（ECHA CHEM / ECHA CLP / EUR-Lex / IARC）
         │
         │  download_sources.R        只负责"抓下来存成 xlsx"
         ▼
@@ -85,10 +85,9 @@ res <- assign_toxicity(x, output_file = "report.xlsx")
 |---|---:|---|
 | `database_inspector_app.R` | ~3000 | Shiny 查看器。**整个包在一个函数里**，只有 1 个导出函数。一键操作面板见 ADR 0011；筛查面板（上传清单 → run_screening → 等级分布 + 报告下载）见"筛查面板"注释块 |
 | `update_run_guard.R` | ~180 | 一键更新的守卫与判读：防积压点击 / 预演结果判读 / 逐库跑一轮。**纯函数，有测试覆盖**，改更新按钮先看这里 |
-| `fcmsafety_main.R` | ~350 | 建库 / 状态 / 体检三个面向用户的入口 |
-| `update_history_audit.R` | ~520 | 读更新账本，回答"这条数据什么时候进来的" |
+| `fcmsafety_main.R` | ~220 | 建库 / 状态两个面向用户的入口 |
+| `update_history_audit.R` | ~300 | 读更新账本，回答"这条数据什么时候进来的" |
 | `manual_list_check.R` | ~240 | 探测人工放进 `inst/` 的新清单并消费掉 |
-| `simple_migration.R` | ~160 | 旧线兼容壳，转发给 `migrate_xlsx_to_sqlite()` |
 | `globals.R` | ~36 | 只声明全局变量消 check NOTE，无运行时作用 |
 
 ### 文档与决策
@@ -96,7 +95,7 @@ res <- assign_toxicity(x, output_file = "report.xlsx")
 | 位置 | 内容 |
 |---|---|
 | `CONTEXT.md` | 术语表。改代码前先对齐术语（如"法规库"不叫"数据库"） |
-| `docs/adr/0001`–`0011` | 架构决策记录。**每个 ADR 都写了"为什么不用另一种做法"**，改相关代码前必读 |
+| `docs/adr/0001`–`0012` | 架构决策记录。**每个 ADR 都写了"为什么不用另一种做法"**，改相关代码前必读 |
 | `GROUP_MEMBERSHIP_NEXT_STEPS.md` | 组条目判定的待办清单 |
 | `INTERN_HANDOFF.md` | 交接说明 |
 
@@ -138,31 +137,28 @@ res <- assign_toxicity(x, output_file = "report.xlsx")
 9. **单库 `update_*_auto()` 默认 `source="local"`（读 inst/ 本地文件，不联网），
    总调度 `update_database_auto()` 默认 `source="download"`（联网下载）**——
    语义相反是有意的：一键更新就该联网，单独跑某个库则默认离线。别"顺手统一"。
-10. **SVHC 的 auto 回退链只有 echa -> local**。Wikipedia 镜像非官方源，
-    仅显式 `source="wikipedia"` 时可用，不要加回自动链。
+10. **SVHC 取数链只有 echa -> local**。Wikipedia 镜像源已整体删除
+    （2026-09-12，非官方源），不要以任何形式加回来。
 
 ---
 
 ## 6. 自检怎么跑
 
-在项目根目录（`C:\Users\13432\WorkBuddy\2026-08-31-14-16-57\fcmsafety`），
-用 VSCode 的 Git Bash 终端：
+在项目根目录（含 inst/ 的目录）的任意 UTF-8 终端里（locale 必须 UTF-8，否则中文文件名会让 R CMD build 静默失败）：
 
 ```bash
-# 测试（153 个用例，约 20 秒）
-NOT_CRAN=true "/c/Program Files/R/R-4.6.1/bin/Rscript.exe" tools/run_tests.R
+# 测试（270 个用例）
+NOT_CRAN=true Rscript tools/run_tests.R
 
 # R CMD check（只做静态检查，examples/tests 显示 SKIPPED 是正常的）
-LC_ALL=zh_CN.UTF-8 "/c/Program Files/R/R-4.6.1/bin/Rscript.exe" tools/run_check.R
+LC_ALL=en_US.UTF-8 NOT_CRAN=true Rscript tools/run_check.R
 
 # 分区注释没插进 roxygen 块（改完注释跑一下，很快）
-"/c/Program Files/R/R-4.6.1/bin/Rscript.exe" tools/check_section_markers.R
+Rscript tools/check_section_markers.R
 ```
 
 **判读标准**：`run_tests.R` 要 0 failed / 0 error；`run_check.R` 允许 1 个
 WARNING（`code files for non-ASCII characters`，中文常量，接受不修），
 **不允许 ERROR**。
 
-> 本机 R 在 WorkBuddy 终端里退出时常报 exit 139 / 0xC0000005，那是沙箱
-> 注入的 `tsbx.dll` 干的，不是代码问题。**看落盘的产物和打印的结果判成败，
-> 不看退出码。**
+

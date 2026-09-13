@@ -18,6 +18,25 @@
 
 # ---- R 内直接调用 Toxtree CLI ----------------------------------------------
 
+#' 判断单个 SMILES 能否被解析（内部）
+#'
+#' 注意 rcdk::parse.smiles() 对无法解析的输入返回的是"长度为 1、元素为 NULL"
+#' 的列表（并伴随 warning），不是长度 0 的空列表——只查 length() 会把坏行
+#' 误判成好行。这里同时判 NULL 与 length。
+#'
+#' @param smiles 字符向量
+#' @return 逻辑向量
+#' @keywords internal
+#' @encoding UTF-8
+.smiles_is_parsable <- function(smiles) {
+  vapply(as.character(smiles), function(s) {
+    if (is.na(s) || !nzchar(s)) return(FALSE)
+    m <- tryCatch(suppressWarnings(rcdk::parse.smiles(s)),
+                  error = function(e) NULL)
+    !is.null(m) && length(m) > 0 && !is.null(m[[1]])
+  }, logical(1), USE.NAMES = FALSE)
+}
+
 # ---- jar 管理：查找 / 下载 / 解压 ------------------------------------------
 
 # 固定版本：Toxtree 3.1.0（SourceForge 最新，2018-05-04 发布）

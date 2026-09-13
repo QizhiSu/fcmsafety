@@ -120,10 +120,6 @@ setup_fcmsafety_database <- function(force_reinit = FALSE, backup_xlsx = TRUE) {
   })
 }
 
-# assign_toxicity_enhanced() 已于 2026-09-09 删除：其"保存结果到 CSV"功能已
-# 合并进 assign_toxicity()（新增 output_file 参数）；"默认 check_updates = TRUE"
-# 属有意不合并的行为（基础版应保持确定性、默认不查更新）。见 R/direct_sql_toxicity.R。
-
 #' Quick Database Status Check
 #'
 #' Provides a quick overview of the current database system status,

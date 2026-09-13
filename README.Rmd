@@ -22,101 +22,134 @@ knitr::opts_chunk$set(
 
 <!-- badges: start -->
 <!-- badges: end -->
+
 # Introduction
 
-  The goal of fcmsafety is to assign toxicity levels for compounds from food contact materials. It takes into account the toxicity data from:
-  1. Substances of Very High Concern (SVHC) from ECHA (https://echa.europa.eu/candidate-list-table);
-  2. Carcinogenic, Mutagenic, and Reprotoxic (CMR) from the Classification, Labelling, and Packaging (CLP) regulation (https://echa.europa.eu/information-on-chemicals/annex-vi-to-clp) ;
-  3. Carcinogenic substances from IARC (https://monographs.iarc.who.int/list-of-classifications);
-  4. Endocrine Disrupting Chemicals (EDC) from The International Panel on Chemical Pollution (IPCP) commissioned by UN Environment (https://www.unep.org/explore-topics/chemicals-waste/what-we-do/emerging-issues/scientific-knowledge-endocrine-disrupting);
-  5. Specific Migration Limit (SML) from EU 10/2011 regulation (https://eur-lex.europa.eu/legal-content/EN/TXT/HTML/?uri=CELEX:02011R0010-20200923&qid=1636402301680&from=en)
-  6. Specific Migration Limit (SML) from China GB 9685 regulation (Provided by IQTC). 
-    
-  The toxicity level assignment follows the rules listed in the inst/toxicity_levels.png
-  (don't know why it is not rendered in this readme file)
-    
-  Please bear in mind that the toxicity level assignment here is on the basis of individual compounds, whilst substances listed in the aforementioned databases could be groups of compounds. These groups of substances will not be considered as they not are specific in terms of chemical structures and no "InChIKey" can be retrieved from Pubchem, which is used for matching. For example, nonylphenols
-  are a family of closely related organic compounds composed of phenol bearing a 9 carbon-tail, and they could be overlooked unless any database has numerated some specific structures in their lists. 
-  
+The goal of fcmsafety is to screen compounds from food contact materials
+against regulatory hazard lists and assign a toxicity level (I–V) to each
+substance. It takes into account the toxicity data from:
+
+1. Substances of Very High Concern (SVHC) from ECHA (<https://echa.europa.eu/candidate-list-table>);
+2. Carcinogenic, Mutagenic, and Reprotoxic (CMR) and CMR-suspect entries from the Classification, Labelling, and Packaging (CLP) regulation, Annex VI (<https://echa.europa.eu/information-on-chemicals/annex-vi-to-clp>);
+3. Carcinogenic substances from IARC (<https://monographs.iarc.who.int/list-of-classifications>);
+4. Endocrine Disrupting Chemicals (EDC) from The International Panel on Chemical Pollution (IPCP) commissioned by UN Environment (<https://www.unep.org/explore-topics/chemicals-waste/what-we-do/emerging-issues/scientific-knowledge-endocrine-disrupting>);
+5. Specific Migration Limit (SML) from EU 10/2011 regulation (<https://eur-lex.europa.eu/legal-content/EN/TXT/HTML/?uri=CELEX:02011R0010-20200923&qid=1636402301680&from=en>);
+6. Specific Migration Limit (SML) from China GB 9685 regulation (provided by IQTC).
+
+Every row of the output carries a `Toxic_level` (I–V, strictest evidence
+wins) plus a `Toxic_level_basis` column that states *why* the level was
+assigned. An empty level (`-`) means "no evidence found" — it never means
+"safe". Group entries (e.g. IARC group entries such as *Aflatoxins*, lead
+and its compounds) are covered by a group-entry registry; pass
+`group_membership = TRUE` to include group-level judgment.
+
+All regulatory tables live in one SQLite file (`inst/fcmsafety.db`) that
+ships with the package, so screening works fully offline.
+
 # Installation
 
-You can install the development version of fcmsafety from [GitHub](https://github.com/) with the code listed below. 
-
-```{r}
+``` r
 install.packages("remotes")
-remotes::install_github("QizhiSu/fcmsafety")
+# Development happens on the fcmsafety-v2 branch:
+remotes::install_github("QizhiSu/fcmsafety", ref = "fcmsafety-v2")
 ```
 
-# Load required packages
-```{r}
+# Quick start: one call
+
+Your input needs at least a name column and a `SMILES` column. If it
+already contains an `InChIKey` column (e.g. produced by
+[***labtools***](https://github.com/QizhiSu/labtools)), it is used as-is
+and no structure derivation happens.
+
+``` r
 library(fcmsafety)
-library(dplyr)
+
+substances <- data.frame(
+  NAME   = c("Bisphenol A", "Ethanol"),
+  SMILES = c("CC(C)(c1ccc(O)cc1)c1ccc(O)cc1", "CCO")
+)
+
+res <- run_screening(substances, output_file = "screening.xlsx")
+print_prepare_report(res)   # which rows could not be resolved, and why
 ```
 
-# Update and Load databases
+`run_screening()` derives missing structure identifiers offline (local
+CDK, no network), matches the regulatory databases, assigns the toxicity
+level, and writes a styled Excel report with four sheets (Results /
+Summary / Unassigned / Issues). Use `online = TRUE` to fall back to
+PubChem for rows that cannot be resolved locally.
 
-The package ships with pre-prepared databases (updated on 2021/11/11) that are
-loaded by default, so updating is optional. To refresh a source database to the
-latest version, use the incremental per-source updaters (they write to the
-SQLite database `inst/fcmsafety.db`). The legacy full re-download function
-`update_databases()` has been removed.
+# Update the regulatory databases
 
-```{r, eval = FALSE}
-fcmsafety::update_svhc_auto()                # SVHC candidate list
-fcmsafety::update_cmr_auto(enrich = TRUE)    # CMR from CLP Annex VI
-fcmsafety::update_iarc_auto()                # IARC classifications
-fcmsafety::update_eu_sml_auto(enrich = TRUE) # EU 10/2011 positive list
+``` r
+update_database_auto()   # refresh all sources (online, incremental)
 ```
 
-No load step is needed: `assign_toxicity()` and `run_screening()` read the
-SQLite database directly.
+Each source can also be updated individually, and a dry run that shows
+the diff without writing is the default for the individual functions:
 
-# Process your data
-## Read in your data
-
-```{r}
-# Please enter the path of your data, e.g., "D:/my data/mydata.xlsx".
-data <- rio::import("D:/my data/mydata.xlsx")
+``` r
+update_svhc_auto()                  # SVHC candidate list
+update_cmr_auto(enrich = TRUE)      # CMR from CLP Annex VI (H340/H350/H360)
+update_cmr_suspect_auto()           # CMR suspects from CLP (H341/H351/H361)
+update_iarc_auto()                  # IARC classifications
+update_eu_sml_auto(enrich = TRUE)   # EU 10/2011 positive list
 ```
 
-Given that your data have at least SMILES and CAS numbers, you can use the following code to process your data. Otherwise, you need to firstly extract metadata from Pubchem using the [***labtools***](https://github.com/QizhiSu/labtools).
+Additions are applied automatically (bounded by `max_auto_changes`);
+removals always require manual confirmation. China SML has no stable
+online source and is updated by dropping a file into `inst/` — see
+`check_manual_lists()`.
 
-## Run Toxtree from R
+# Step by step
 
-`run_toxtree()` calls the Toxtree headless (command-line) mode directly from R, so the manual GUI batch processing step below is no longer needed. On first use, it downloads the Toxtree application (about 81 MB, one-time) from SourceForge into a local cache directory outside the package. Java 8 or newer must be installed (https://adoptium.net).
+`run_screening()` is a thin wrapper around two steps that you can also
+call directly.
 
-```{r}
-# Runs the classic Cramer rules and writes "toxtree_results.csv"
-result <- run_toxtree(data)
-# Other Cramer rule variants:
-# run_toxtree(data, module = "cramer2.CramerRulesWithExtensions")               # extended
-# run_toxtree(data, module = "toxtree.tree.cramer3.RevisedCramerDecisionTree")  # revised
+## 1. Prepare the input (only if InChIKey is missing)
+
+``` r
+prepared <- prepare_input(data)   # name + SMILES -> InChIKey/CID/Formula (offline CDK)
+print_prepare_report(prepared)
 ```
 
-## Manual Toxtree batch processing (alternative)
+Skip this step when your data already carries an `InChIKey` column.
 
-If you prefer the Toxtree GUI, or cannot install Java, the classical manual workflow is still available: import `for_toxtree.csv` into the Toxtree application, run batch processing with the Cramer rules module, and save the result as `toxtree_results.csv`.
+## 2. Match and grade
 
-    ![\nToxtree batch processing 1](inst/toxtree_batch_processing1.png){width=500px}
-    
-    ![\nToxtree batch processing 2](inst/toxtree_batch_processing2.png){width=500px}
-    
-    ![\nToxtree batch processing 3](inst/toxtree_batch_processing3.png){width=500px}
-    
-
-Normally, this step is quite fast, but we noticed that polyethylene glycols might take quite long time.
-    
-## Assign toxicity
-
-This step requires the results from Toxtree (assuming you have the result in "D:/data/mydata_toxtree_results.csv"). 
-
-```{r}
-data_complete <- data %>% 
-  assign_toxicity(toxtree_result = "D:/data/mydata_toxtree_results.csv")
+``` r
+res <- assign_toxicity(prepared, output_file = "report.xlsx")
 ```
 
-## Export results
-```{r}
-rio::export(data_complete, "D:/data/mydata_result.xlsx")
+Matching is by `InChIKey` against SVHC / CMR / CMR-suspect / EDC / IARC /
+EU SML / China SML. For compounds absent from all lists, Cramer rules are
+predicted by calling Toxtree headless from R (`run_toxtree()`); the
+Toxtree application (about 81 MB) is downloaded once on first use and
+Java 8+ must be installed (<https://adoptium.net>). If Toxtree cannot
+run, the screening degrades gracefully: regulatory matching is kept and
+Cramer columns stay blank.
+
+## 3. Report
+
+`output_file` dispatches on the extension: `.xlsx` produces the styled
+four-sheet report, `.csv` a plain export. `rio::export(res, ...)` also
+works — the data frame is plain data.
+
+# Graphical interface
+
+``` r
+launch_database_inspector()
 ```
 
+A Shiny app to browse every regulatory table, run the online update with
+a two-phase preview-then-write flow, and run the full screening workflow
+(upload a substance list, preview level distribution, download the
+report).
+
+# Note on group entries
+
+Group entries (nonylphenols, lead compounds, ...) are visible to the
+package through an explicit registry. `assign_toxicity(group_membership
+= TRUE)` additionally reports group hits per row; grading from group
+evidence is deliberately conservative and flags conservative cases for
+manual review instead of guessing.

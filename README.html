@@ -610,87 +610,109 @@ padding-top: 0px;
 <!-- badges: end -->
 
 <h1 id="introduction">Introduction</h1>
-<p>The goal of fcmsafety is to assign toxicity levels for compounds from
-food contact materials. It takes into account the toxicity data from: 1.
-Substances of Very High Concern (SVHC) from ECHA (<a href="https://echa.europa.eu/candidate-list-table">https://echa.europa.eu/candidate-list-table</a>);
-2. Carcinogenic, Mutagenic, and Reprotoxic (CMR) from the
-Classification, Labelling, and Packaging (CLP) regulation (<a href="https://echa.europa.eu/information-on-chemicals/annex-vi-to-clp">https://echa.europa.eu/information-on-chemicals/annex-vi-to-clp</a>)
-; 3. Carcinogenic substances from IARC (<a href="https://monographs.iarc.who.int/list-of-classifications">https://monographs.iarc.who.int/list-of-classifications</a>);
-4. Endocrine Disrupting Chemicals (EDC) from The International Panel on
-Chemical Pollution (IPCP) commissioned by UN Environment (<a href="https://www.unep.org/explore-topics/chemicals-waste/what-we-do/emerging-issues/scientific-knowledge-endocrine-disrupting">https://www.unep.org/explore-topics/chemicals-waste/what-we-do/emerging-issues/scientific-knowledge-endocrine-disrupting</a>);
-5. Specific Migration Limit (SML) from EU 10/2011 regulation (<a href="https://eur-lex.europa.eu/legal-content/EN/TXT/HTML/?uri=CELEX:02011R0010-20200923&amp;qid=1636402301680&amp;from=en">https://eur-lex.europa.eu/legal-content/EN/TXT/HTML/?uri=CELEX:02011R0010-20200923&amp;qid=1636402301680&amp;from=en</a>)
-6. Specific Migration Limit (SML) from China GB 9685 regulation
-(Provided by IQTC).</p>
-<p>The toxicity level assignment follows the rules listed in the
-inst/toxicity_levels.png (don’t know why it is not rendered in this
-readme file)</p>
-<p>Please bear in mind that the toxicity level assignment here is on the
-basis of individual compounds, whilst substances listed in the
-aforementioned databases could be groups of compounds. These groups of
-substances will not be considered as they not are specific in terms of
-chemical structures and no “InChIKey” can be retrieved from Pubchem,
-which is used for matching. For example, nonylphenols are a family of
-closely related organic compounds composed of phenol bearing a 9
-carbon-tail, and they could be overlooked unless any database has
-numerated some specific structures in their lists.</p>
+<p>The goal of fcmsafety is to screen compounds from food contact
+materials against regulatory hazard lists and assign a toxicity level
+(I–V) to each substance. It takes into account the toxicity data
+from:</p>
+<ol style="list-style-type: decimal">
+<li>Substances of Very High Concern (SVHC) from ECHA (<a href="https://echa.europa.eu/candidate-list-table">https://echa.europa.eu/candidate-list-table</a>);</li>
+<li>Carcinogenic, Mutagenic, and Reprotoxic (CMR) and CMR-suspect
+entries from the Classification, Labelling, and Packaging (CLP)
+regulation, Annex VI (<a href="https://echa.europa.eu/information-on-chemicals/annex-vi-to-clp">https://echa.europa.eu/information-on-chemicals/annex-vi-to-clp</a>);</li>
+<li>Carcinogenic substances from IARC (<a href="https://monographs.iarc.who.int/list-of-classifications">https://monographs.iarc.who.int/list-of-classifications</a>);</li>
+<li>Endocrine Disrupting Chemicals (EDC) from The International Panel on
+Chemical Pollution (IPCP) commissioned by UN Environment (<a href="https://www.unep.org/explore-topics/chemicals-waste/what-we-do/emerging-issues/scientific-knowledge-endocrine-disrupting">https://www.unep.org/explore-topics/chemicals-waste/what-we-do/emerging-issues/scientific-knowledge-endocrine-disrupting</a>);</li>
+<li>Specific Migration Limit (SML) from EU 10/2011 regulation (<a href="https://eur-lex.europa.eu/legal-content/EN/TXT/HTML/?uri=CELEX:02011R0010-20200923&amp;qid=1636402301680&amp;from=en">https://eur-lex.europa.eu/legal-content/EN/TXT/HTML/?uri=CELEX:02011R0010-20200923&amp;qid=1636402301680&amp;from=en</a>);</li>
+<li>Specific Migration Limit (SML) from China GB 9685 regulation
+(provided by IQTC).</li>
+</ol>
+<p>Every row of the output carries a <code>Toxic_level</code> (I–V,
+strictest evidence wins) plus a <code>Toxic_level_basis</code> column
+that states <em>why</em> the level was assigned. An empty level
+(<code>-</code>) means “no evidence found” — it never means “safe”.
+Group entries (e.g. IARC group entries such as <em>Aflatoxins</em>, lead
+and its compounds) are covered by a group-entry registry; pass
+<code>group_membership = TRUE</code> to include group-level
+judgment.</p>
+<p>All regulatory tables live in one SQLite file
+(<code>inst/fcmsafety.db</code>) that ships with the package, so
+screening works fully offline.</p>
 <h1 id="installation">Installation</h1>
-<p>You can install the development version of fcmsafety from <a href="https://github.com/">GitHub</a> with the code listed below.</p>
 <div class="sourceCode" id="cb1"><pre class="sourceCode r"><code class="sourceCode r"><span id="cb1-1"><a href="#cb1-1" tabindex="-1"></a><span class="fu">install.packages</span>(<span class="st">&quot;remotes&quot;</span>)</span>
-<span id="cb1-2"><a href="#cb1-2" tabindex="-1"></a>remotes<span class="sc">::</span><span class="fu">install_github</span>(<span class="st">&quot;QizhiSu/fcmsafety&quot;</span>)</span></code></pre></div>
-<h1 id="load-required-packages">Load required packages</h1>
+<span id="cb1-2"><a href="#cb1-2" tabindex="-1"></a><span class="co"># Development happens on the fcmsafety-v2 branch:</span></span>
+<span id="cb1-3"><a href="#cb1-3" tabindex="-1"></a>remotes<span class="sc">::</span><span class="fu">install_github</span>(<span class="st">&quot;QizhiSu/fcmsafety&quot;</span>, <span class="at">ref =</span> <span class="st">&quot;fcmsafety-v2&quot;</span>)</span></code></pre></div>
+<h1 id="quick-start-one-call">Quick start: one call</h1>
+<p>Your input needs at least a name column and a <code>SMILES</code>
+column. If it already contains an <code>InChIKey</code> column
+(e.g. produced by <a href="https://github.com/QizhiSu/labtools"><em><strong>labtools</strong></em></a>),
+it is used as-is and no structure derivation happens.</p>
 <div class="sourceCode" id="cb2"><pre class="sourceCode r"><code class="sourceCode r"><span id="cb2-1"><a href="#cb2-1" tabindex="-1"></a><span class="fu">library</span>(fcmsafety)</span>
-<span id="cb2-2"><a href="#cb2-2" tabindex="-1"></a><span class="fu">library</span>(dplyr)</span></code></pre></div>
-<h1 id="update-and-load-databases">Update and Load databases</h1>
-<p>The package ships with pre-prepared databases (updated on 2021/11/11)
-that are loaded by default, so updating is optional. To refresh a source
-database to the latest version, use the incremental per-source updaters
-(they write to the SQLite database <code>inst/fcmsafety.db</code>). The
-legacy full re-download function <code>update_databases()</code> has
-been removed.</p>
-<div class="sourceCode" id="cb3"><pre class="sourceCode r"><code class="sourceCode r"><span id="cb3-1"><a href="#cb3-1" tabindex="-1"></a>fcmsafety<span class="sc">::</span><span class="fu">update_svhc_auto</span>()                <span class="co"># SVHC candidate list</span></span>
-<span id="cb3-2"><a href="#cb3-2" tabindex="-1"></a>fcmsafety<span class="sc">::</span><span class="fu">update_cmr_auto</span>(<span class="at">enrich =</span> <span class="cn">TRUE</span>)    <span class="co"># CMR from CLP Annex VI</span></span>
-<span id="cb3-3"><a href="#cb3-3" tabindex="-1"></a>fcmsafety<span class="sc">::</span><span class="fu">update_iarc_auto</span>()                <span class="co"># IARC classifications</span></span>
-<span id="cb3-4"><a href="#cb3-4" tabindex="-1"></a>fcmsafety<span class="sc">::</span><span class="fu">update_eu_sml_auto</span>(<span class="at">enrich =</span> <span class="cn">TRUE</span>) <span class="co"># EU 10/2011 positive list</span></span></code></pre></div>
-<p>No load step is needed: <code>assign_toxicity()</code> and
-<code>run_screening()</code> read the SQLite database directly.</p>
-<h1 id="process-your-data">Process your data</h1>
-<h2 id="read-in-your-data">Read in your data</h2>
-<div class="sourceCode" id="cb4"><pre class="sourceCode r"><code class="sourceCode r"><span id="cb4-1"><a href="#cb4-1" tabindex="-1"></a><span class="co"># Please enter the path of your data, e.g., &quot;D:/my data/mydata.xlsx&quot;.</span></span>
-<span id="cb4-2"><a href="#cb4-2" tabindex="-1"></a>data <span class="ot">&lt;-</span> rio<span class="sc">::</span><span class="fu">import</span>(<span class="st">&quot;D:/my data/mydata.xlsx&quot;</span>)</span></code></pre></div>
-<p>Given that your data have at least SMILES and CAS numbers, you can
-use the following code to process your data. Otherwise, you need to
-firstly extract metadata from Pubchem using the <a href="https://github.com/QizhiSu/labtools"><em><strong>labtools</strong></em></a>.</p>
-<h2 id="run-toxtree-from-r">Run Toxtree from R</h2>
-<p><code>run_toxtree()</code> calls the Toxtree headless (command-line)
-mode directly from R, so the manual GUI batch processing step below is
-no longer needed. On first use, it downloads the Toxtree application
-(about 81 MB, one-time) from SourceForge into a local cache directory
-outside the package. Java 8 or newer must be installed (<a href="https://adoptium.net">https://adoptium.net</a>).</p>
-<div class="sourceCode" id="cb5"><pre class="sourceCode r"><code class="sourceCode r"><span id="cb5-1"><a href="#cb5-1" tabindex="-1"></a><span class="co"># Runs the classic Cramer rules and writes &quot;toxtree_results.csv&quot;</span></span>
-<span id="cb5-2"><a href="#cb5-2" tabindex="-1"></a>result <span class="ot">&lt;-</span> <span class="fu">run_toxtree</span>(data)</span>
-<span id="cb5-3"><a href="#cb5-3" tabindex="-1"></a><span class="co"># Other Cramer rule variants:</span></span>
-<span id="cb5-4"><a href="#cb5-4" tabindex="-1"></a><span class="co"># run_toxtree(data, module = &quot;cramer2.CramerRulesWithExtensions&quot;)               # extended</span></span>
-<span id="cb5-5"><a href="#cb5-5" tabindex="-1"></a><span class="co"># run_toxtree(data, module = &quot;toxtree.tree.cramer3.RevisedCramerDecisionTree&quot;)  # revised</span></span></code></pre></div>
-<h2 id="manual-toxtree-batch-processing-alternative">Manual Toxtree
-batch processing (alternative)</h2>
-<p>If you prefer the Toxtree GUI, or cannot install Java, the classical
-manual workflow is still available: import <code>for_toxtree.csv</code>
-into the Toxtree application, run batch processing with the Cramer rules
-module, and save the result as <code>toxtree_results.csv</code>.</p>
-<pre><code>![\nToxtree batch processing 1](inst/toxtree_batch_processing1.png){width=500px}
-
-![\nToxtree batch processing 2](inst/toxtree_batch_processing2.png){width=500px}
-
-![\nToxtree batch processing 3](inst/toxtree_batch_processing3.png){width=500px}</code></pre>
-<p>Normally, this step is quite fast, but we noticed that polyethylene
-glycols might take quite long time.</p>
-<h2 id="assign-toxicity">Assign toxicity</h2>
-<p>This step requires the results from Toxtree (assuming you have the
-result in “D:/data/mydata_toxtree_results.csv”).</p>
-<div class="sourceCode" id="cb7"><pre class="sourceCode r"><code class="sourceCode r"><span id="cb7-1"><a href="#cb7-1" tabindex="-1"></a>data_complete <span class="ot">&lt;-</span> data <span class="sc">%&gt;%</span> </span>
-<span id="cb7-2"><a href="#cb7-2" tabindex="-1"></a>  <span class="fu">assign_toxicity</span>(<span class="at">toxtree_result =</span> <span class="st">&quot;D:/data/mydata_toxtree_results.csv&quot;</span>)</span></code></pre></div>
-<h2 id="export-results">Export results</h2>
-<div class="sourceCode" id="cb8"><pre class="sourceCode r"><code class="sourceCode r"><span id="cb8-1"><a href="#cb8-1" tabindex="-1"></a>rio<span class="sc">::</span><span class="fu">export</span>(data_complete, <span class="st">&quot;D:/data/mydata_result.xlsx&quot;</span>)</span></code></pre></div>
+<span id="cb2-2"><a href="#cb2-2" tabindex="-1"></a></span>
+<span id="cb2-3"><a href="#cb2-3" tabindex="-1"></a>substances <span class="ot">&lt;-</span> <span class="fu">data.frame</span>(</span>
+<span id="cb2-4"><a href="#cb2-4" tabindex="-1"></a>  <span class="at">NAME   =</span> <span class="fu">c</span>(<span class="st">&quot;Bisphenol A&quot;</span>, <span class="st">&quot;Ethanol&quot;</span>),</span>
+<span id="cb2-5"><a href="#cb2-5" tabindex="-1"></a>  <span class="at">SMILES =</span> <span class="fu">c</span>(<span class="st">&quot;CC(C)(c1ccc(O)cc1)c1ccc(O)cc1&quot;</span>, <span class="st">&quot;CCO&quot;</span>)</span>
+<span id="cb2-6"><a href="#cb2-6" tabindex="-1"></a>)</span>
+<span id="cb2-7"><a href="#cb2-7" tabindex="-1"></a></span>
+<span id="cb2-8"><a href="#cb2-8" tabindex="-1"></a>res <span class="ot">&lt;-</span> <span class="fu">run_screening</span>(substances, <span class="at">output_file =</span> <span class="st">&quot;screening.xlsx&quot;</span>)</span>
+<span id="cb2-9"><a href="#cb2-9" tabindex="-1"></a><span class="fu">print_prepare_report</span>(res)   <span class="co"># which rows could not be resolved, and why</span></span></code></pre></div>
+<p><code>run_screening()</code> derives missing structure identifiers
+offline (local CDK, no network), matches the regulatory databases,
+assigns the toxicity level, and writes a styled Excel report with four
+sheets (Results / Summary / Unassigned / Issues). Use
+<code>online = TRUE</code> to fall back to PubChem for rows that cannot
+be resolved locally.</p>
+<h1 id="update-the-regulatory-databases">Update the regulatory
+databases</h1>
+<div class="sourceCode" id="cb3"><pre class="sourceCode r"><code class="sourceCode r"><span id="cb3-1"><a href="#cb3-1" tabindex="-1"></a><span class="fu">update_database_auto</span>()   <span class="co"># refresh all sources (online, incremental)</span></span></code></pre></div>
+<p>Each source can also be updated individually, and a dry run that
+shows the diff without writing is the default for the individual
+functions:</p>
+<div class="sourceCode" id="cb4"><pre class="sourceCode r"><code class="sourceCode r"><span id="cb4-1"><a href="#cb4-1" tabindex="-1"></a><span class="fu">update_svhc_auto</span>()                  <span class="co"># SVHC candidate list</span></span>
+<span id="cb4-2"><a href="#cb4-2" tabindex="-1"></a><span class="fu">update_cmr_auto</span>(<span class="at">enrich =</span> <span class="cn">TRUE</span>)      <span class="co"># CMR from CLP Annex VI (H340/H350/H360)</span></span>
+<span id="cb4-3"><a href="#cb4-3" tabindex="-1"></a><span class="fu">update_cmr_suspect_auto</span>()           <span class="co"># CMR suspects from CLP (H341/H351/H361)</span></span>
+<span id="cb4-4"><a href="#cb4-4" tabindex="-1"></a><span class="fu">update_iarc_auto</span>()                  <span class="co"># IARC classifications</span></span>
+<span id="cb4-5"><a href="#cb4-5" tabindex="-1"></a><span class="fu">update_eu_sml_auto</span>(<span class="at">enrich =</span> <span class="cn">TRUE</span>)   <span class="co"># EU 10/2011 positive list</span></span></code></pre></div>
+<p>Additions are applied automatically (bounded by
+<code>max_auto_changes</code>); removals always require manual
+confirmation. China SML has no stable online source and is updated by
+dropping a file into <code>inst/</code> — see
+<code>check_manual_lists()</code>.</p>
+<h1 id="step-by-step">Step by step</h1>
+<p><code>run_screening()</code> is a thin wrapper around two steps that
+you can also call directly.</p>
+<h2 id="id_1-prepare-the-input-only-if-inchikey-is-missing">1. Prepare
+the input (only if InChIKey is missing)</h2>
+<div class="sourceCode" id="cb5"><pre class="sourceCode r"><code class="sourceCode r"><span id="cb5-1"><a href="#cb5-1" tabindex="-1"></a>prepared <span class="ot">&lt;-</span> <span class="fu">prepare_input</span>(data)   <span class="co"># name + SMILES -&gt; InChIKey/CID/Formula (offline CDK)</span></span>
+<span id="cb5-2"><a href="#cb5-2" tabindex="-1"></a><span class="fu">print_prepare_report</span>(prepared)</span></code></pre></div>
+<p>Skip this step when your data already carries an
+<code>InChIKey</code> column.</p>
+<h2 id="id_2-match-and-grade">2. Match and grade</h2>
+<div class="sourceCode" id="cb6"><pre class="sourceCode r"><code class="sourceCode r"><span id="cb6-1"><a href="#cb6-1" tabindex="-1"></a>res <span class="ot">&lt;-</span> <span class="fu">assign_toxicity</span>(prepared, <span class="at">output_file =</span> <span class="st">&quot;report.xlsx&quot;</span>)</span></code></pre></div>
+<p>Matching is by <code>InChIKey</code> against SVHC / CMR / CMR-suspect
+/ EDC / IARC / EU SML / China SML. For compounds absent from all lists,
+Cramer rules are predicted by calling Toxtree headless from R
+(<code>run_toxtree()</code>); the Toxtree application (about 81 MB) is
+downloaded once on first use and Java 8+ must be installed (<a href="https://adoptium.net">https://adoptium.net</a>). If Toxtree cannot
+run, the screening degrades gracefully: regulatory matching is kept and
+Cramer columns stay blank.</p>
+<h2 id="id_3-report">3. Report</h2>
+<p><code>output_file</code> dispatches on the extension:
+<code>.xlsx</code> produces the styled four-sheet report,
+<code>.csv</code> a plain export. <code>rio::export(res, ...)</code>
+also works — the data frame is plain data.</p>
+<h1 id="graphical-interface">Graphical interface</h1>
+<div class="sourceCode" id="cb7"><pre class="sourceCode r"><code class="sourceCode r"><span id="cb7-1"><a href="#cb7-1" tabindex="-1"></a><span class="fu">launch_database_inspector</span>()</span></code></pre></div>
+<p>A Shiny app to browse every regulatory table, run the online update
+with a two-phase preview-then-write flow, and run the full screening
+workflow (upload a substance list, preview level distribution, download
+the report).</p>
+<h1 id="note-on-group-entries">Note on group entries</h1>
+<p>Group entries (nonylphenols, lead compounds, …) are visible to the
+package through an explicit registry.
+<code>assign_toxicity(group_membership = TRUE)</code> additionally
+reports group hits per row; grading from group evidence is deliberately
+conservative and flags conservative cases for manual review instead of
+guessing.</p>
 
 </body>
 </html>

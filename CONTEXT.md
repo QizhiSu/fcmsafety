@@ -36,10 +36,6 @@ _Avoid_：InChiKey（拼写）、CAS 号做主键（旧库格式不一致）
 
 ### 数据流文件
 
-**for_toxtree.csv**：
-`export4toxtree()` 产出的 Toxtree 输入文件，仅 NAME / CAS / SMILES 三列。
-_Avoid_：toxtree 输入（泛指）
-
 **toxtree_results.csv**：
 Toxtree 分类结果文件，`assign_toxicity()` 的输入；关键列 `Cramer.rules`。
 _Avoid_：toxtree 输出（泛指）、Cramer rules 列（带空格的原始列名）
