@@ -1,5 +1,13 @@
 # fcmsafety 0.1.6 (unreleased)
 
+## Remove the Wikipedia SVHC source entirely
+- `fetch_svhc_wikipedia()` is deleted and the `"wikipedia"` source option is
+  gone from `fetch_svhc_data()` / `update_svhc_auto()` /
+  `update_database_auto(svhc_source = )`. The SVHC fetch chain is now
+  ECHA CHEM (authoritative) -> local files in inst/, with no non-official
+  source at any tier. The date/column-alias parsers keep tolerating
+  Wikipedia-style values already stored in existing databases.
+
 ## The Shiny inspector can now run the full screening workflow
 - New "Screen substances" panel in `launch_database_inspector()`: upload an
   xlsx/csv substance list, run the whole pipeline (structure completion ->

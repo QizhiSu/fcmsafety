@@ -8,7 +8,7 @@
 update_database_auto(
   databases = "all",
   source = c("download", "local"),
-  svhc_source = c("auto", "wikipedia", "local", "echa"),
+  svhc_source = c("auto", "local", "echa"),
   interactive = FALSE,
   auto_apply = TRUE,
   max_auto_changes = 20,
@@ -26,7 +26,7 @@ c("cmr", "cmr_suspect", "iarc", "eu_sml", "svhc") 的任意子集}
 "download"（联网下载最新，默认）或 "local"（用 inst/ 现有文件）}
 
 \item{svhc_source}{SVHC 的取数方式："auto"（默认，ECHA->本地）、
-"wikipedia"、"local"、"echa"}
+"local"、"echa"}
 
 \item{interactive}{是否逐库交互确认（默认 FALSE）}
 

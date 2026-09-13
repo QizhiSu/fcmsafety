@@ -9,9 +9,10 @@
 #   （纯 HTTP GET + Accept: application/json，无需 cookie/浏览器，2026-09 实测可用）。
 #   本文件提供"尽量自动、失败可人工兜底"的流程：
 #     source="echa"       -> 直连 ECHA CHEM 官方导出（首选，最新最权威）
-#     source="wikipedia"  -> 抓 Wikipedia 的 SVHC 列表页（人工维护、通常 1-2 月内更新）
 #     source="local"      -> 读 inst/ 下人工放置的 candidate_list.xlsx / svhc_new.xlsx
-#     source="auto"       -> 依次尝试 echa -> wikipedia -> local，全部失败则报错提示
+#     source="auto"       -> 依次尝试 echa -> local，全部失败则报错提示
+#   （曾有 source="wikipedia" 抓 Wikipedia 镜像列表，2026-09-12 移除：
+#     非官方源，且部分网络环境不可达——历史决定见 git log）
 #
 # 存储模型（2026-09 重建库，蛇形 schema）：
 #   化学元数据集中在 chemicals 总表；svhc 业务表只保留"带有效 InChIKey 的行"
@@ -209,96 +210,7 @@ enrich_svhc_meta <- function(df, db_path = NULL, delay = 0.35, verbose = TRUE) {
   df
 }
 
-# ---- 抓取：Wikipedia 页 / 本地导出文件 ---------------------------------------
-
-#' 抓取 Wikipedia 的 SVHC 列表
-#'
-#' 解析 https://en.wikipedia.org/wiki/List_of_substances_of_very_high_concern
-#' 的候选清单表格。处理 rowspan 跨行填充、脚注清理、日期转换。Wikipedia
-#' 为人工维护，可能滞后或偶有笔误，结果需经 diff 层人工核对。
-#'
-#' @param url Wikipedia 页面地址（可替换为镜像）
-#' @return 标准化后的 data.frame（蛇形列 + 化学列，化学列可为 NA）
-#' @keywords internal
-#' @encoding UTF-8
-fetch_svhc_wikipedia <- function(url = "https://en.wikipedia.org/wiki/List_of_substances_of_very_high_concern") {
-  message("Fetching SVHC list from Wikipedia: ", url)
-  page <- rvest::read_html(url)
-  tabs <- suppressWarnings(rvest::html_table(page, fill = TRUE))
-
-  # 找到候选清单表格：包含 Substance name 表头且列数 >= 5
-  idx <- NA_integer_
-  for (i in seq_along(tabs)) {
-    hdr <- names(tabs[[i]])
-    if (any(grepl("Substance name", hdr, ignore.case = TRUE)) &&
-        any(grepl("CAS", hdr, ignore.case = TRUE)) &&
-        any(grepl("Date of inclusion|inclusion", hdr, ignore.case = TRUE))) {
-      idx <- i
-      break
-    }
-  }
-  if (is.na(idx)) stop("Could not locate the SVHC table on the Wikipedia page")
-
-  tab <- tabs[[idx]]
-  hdr <- names(tab)
-
-  col_sub <- hdr[grepl("Substance name", hdr, ignore.case = TRUE)][1]
-  col_ec  <- hdr[grepl("EC", hdr, ignore.case = TRUE)][1]
-  col_cas <- hdr[grepl("CAS", hdr, ignore.case = TRUE)][1]
-  col_date <- hdr[grepl("inclusion", hdr, ignore.case = TRUE)][1]
-  col_rsn <- hdr[grepl("Reason", hdr, ignore.case = TRUE)][1]
-  if (is.na(col_ec)) col_ec <- NULL
-  if (is.na(col_rsn)) col_rsn <- NULL
-  if (is.na(col_sub) || is.na(col_cas) || is.na(col_date)) {
-    stop("Wikipedia SVHC table columns could not be matched")
-  }
-
-  # rowspan 填充：物质名/EC 等跨行单元格向下填充（na.locf）
-  fill_down <- function(v) {
-    last <- NA_character_
-    for (j in seq_along(v)) {
-      if (!is.na(v[j]) && nzchar(v[j])) last <- v[j]
-      else v[j] <- last
-    }
-    v
-  }
-
-  df <- data.frame(
-    "Substance name" = fill_down(as.character(tab[[col_sub]])),
-    "EC No." = if (!is.null(col_ec)) fill_down(as.character(tab[[col_ec]])) else NA_character_,
-    "CAS No." = as.character(tab[[col_cas]]),
-    "Date of inclusion" = as.character(tab[[col_date]]),
-    "Reason for inclusion" = if (!is.null(col_rsn)) as.character(tab[[col_rsn]]) else NA_character_,
-    check.names = FALSE, stringsAsFactors = FALSE
-  )
-
-  # 清理脚注/维基标记，如 "[1]"、"[a]"、上标符号
-  clean <- function(v) {
-    v <- gsub("\\[[^]]*\\]", "", v)          # [1] [a] [note]
-    v <- gsub("\\^[a-z]", "", v)             # ^a ^b
-    v <- gsub("\u00a0", " ", v)
-    v <- trimws(v)
-    v
-  }
-  df[["Substance name"]] <- clean(df[["Substance name"]])
-  df[["EC No."]] <- clean(df[["EC No."]])
-  df[["CAS No."]] <- clean(df[["CAS No."]])
-  df[["Date of inclusion"]] <- clean(df[["Date of inclusion"]])
-  df[["Reason for inclusion"]] <- clean(df[["Reason for inclusion"]])
-
-  # 表头行自身及无效行过滤
-  df <- df[!is.na(df[["Substance name"]]) &
-             df[["Substance name"]] != "" &
-             !grepl("Substance name", df[["Substance name"]], ignore.case = TRUE), , drop = FALSE]
-  dash <- "\u2013"
-  df[["Substance name"]][!is.na(df[["Substance name"]]) & df[["Substance name"]] == dash] <- NA_character_
-  df[["EC No."]][!is.na(df[["EC No."]]) & df[["EC No."]] == dash] <- NA_character_
-  df[["CAS No."]][!is.na(df[["CAS No."]]) & df[["CAS No."]] == dash] <- NA_character_
-
-  out <- normalize_svhc_df(df)
-  message("   Wikipedia rows parsed: ", nrow(out))
-  out
-}
+# ---- 抓取：本地导出文件 ------------------------------------------------------
 
 #' 读取单个 SVHC 本地导出文件（xlsx / csv）
 #'
@@ -349,7 +261,7 @@ fetch_svhc_local <- function(inst_dir = file.path(getwd(), "inst")) {
   found <- cands[file.exists(cands)]
   if (length(found) == 0) {
     stop("No local SVHC file found. Place candidate_list.xlsx, svhc_new.xlsx or svhc_meta.xlsx in ",
-         inst_dir, " (or use source='wikipedia' / source='echa')")
+         inst_dir, " (or use source='echa')")
   }
 
   best <- NULL
@@ -371,24 +283,20 @@ fetch_svhc_local <- function(inst_dir = file.path(getwd(), "inst")) {
   best
 }
 
-# ---- 源分发：auto -> echa -> local（依次尝试；wikipedia 仅显式指定时用） -----
+# ---- 源分发：auto -> echa -> local（依次尝试） ------------------------------
 
 #' SVHC 数据源分发
 #'
-#' @param source "auto"（默认，echa -> local）、"wikipedia"、"local"、"echa"。
-#'   Wikipedia 镜像不是官方源（且部分网络环境不可达），不进 auto 回退链，
-#'   仅在显式 source = "wikipedia" 时使用
+#' @param source "auto"（默认，echa -> local）、"local"、"echa"
 #' @param inst_dir inst 目录
 #' @param new_file 显式本地文件路径（优先于 source 分发直接读取；
 #'   用于 check_manual_lists() 等场景精确消费某个手动放入的清单文件）
-#' @param wikipedia_url Wikipedia 页面地址
 #' @return 标准化后的 data.frame（蛇形列 + 化学列）
 #' @keywords internal
 #' @encoding UTF-8
-fetch_svhc_data <- function(source = c("auto", "wikipedia", "local", "echa"),
+fetch_svhc_data <- function(source = c("auto", "local", "echa"),
                             inst_dir = file.path(getwd(), "inst"),
-                            new_file = NULL,
-                            wikipedia_url = "https://en.wikipedia.org/wiki/List_of_substances_of_very_high_concern") {
+                            new_file = NULL) {
   source <- match.arg(source)
 
   # 显式文件优先：直接读，不触发下载，避免覆盖 inst/ 真实数据
@@ -405,7 +313,6 @@ fetch_svhc_data <- function(source = c("auto", "wikipedia", "local", "echa"),
     return(out)
   }
 
-  if (source == "wikipedia") return(fetch_svhc_wikipedia(wikipedia_url))
   if (source == "local") return(fetch_svhc_local(inst_dir))
 
   if (source == "echa") {
@@ -417,8 +324,7 @@ fetch_svhc_data <- function(source = c("auto", "wikipedia", "local", "echa"),
     return(fetch_svhc_local(inst_dir))
   }
 
-  # auto: echa -> local。Wikipedia 不进自动回退链（非官方源，且部分网络
-  # 环境不可达），仅显式 source = "wikipedia" 时使用。
+  # auto: echa -> local
   errs <- character(0)
   tryCatch(return(fetch_svhc_data("echa", inst_dir = inst_dir)), error = function(e) {
     errs <<- c(errs, paste("echa:", conditionMessage(e)))
@@ -639,7 +545,7 @@ write_svhc_to_db <- function(new_df, changes, db_path = NULL, backup = TRUE) {
 #'   - 出现 removed（清单移除）时，即使 auto_apply 也强制停下人工确认
 #'     （SVHC 清单历史上只增不减，removed 通常意味着数据源不完整）
 #'
-#' @param source 数据源："auto"（wikipedia -> local）、"wikipedia"、"local"、"echa"
+#' @param source 数据源："auto"（echa -> local）、"local"、"echa"
 #' @param interactive 是否交互确认
 #' @param auto_apply 非交互模式下是否自动入库（受 max_auto_changes 限制）
 #' @param max_auto_changes 自动入库的最大变更条数
@@ -649,11 +555,10 @@ write_svhc_to_db <- function(new_df, changes, db_path = NULL, backup = TRUE) {
 #' @param update_xlsx 是否将合并结果回写 inst/svhc_meta.xlsx（默认关闭）
 #' @param new_file 显式指定本地清单文件（xlsx/csv）直接读取并更新，
 #'   优先于 source 分发；用于 check_manual_lists() 精确消费手动放入的文件
-#' @param wikipedia_url Wikipedia 页面地址（可换镜像）
 #' @return list(success, changes, db_write)
 #' @export
 #' @encoding UTF-8
-update_svhc_auto <- function(source = c("auto", "wikipedia", "local", "echa"),
+update_svhc_auto <- function(source = c("auto", "local", "echa"),
                              interactive = TRUE,
                              auto_apply = FALSE,
                              max_auto_changes = 20,
@@ -661,13 +566,11 @@ update_svhc_auto <- function(source = c("auto", "wikipedia", "local", "echa"),
                              db_path = NULL,
                              backup = TRUE,
                              update_xlsx = FALSE,
-                             new_file = NULL,
-                             wikipedia_url = "https://en.wikipedia.org/wiki/List_of_substances_of_very_high_concern") {
+                             new_file = NULL) {
   source <- match.arg(source)
 
   # ---- 1. 下载 ----
-  new_df <- fetch_svhc_data(source = source, new_file = new_file,
-                            wikipedia_url = wikipedia_url)
+  new_df <- fetch_svhc_data(source = source, new_file = new_file)
   message("   Total rows after normalization: ", nrow(new_df))
 
   # ---- 2. 补 meta（先回填老物质，只对新增查 PubChem）----
@@ -716,7 +619,7 @@ update_svhc_auto <- function(source = c("auto", "wikipedia", "local", "echa"),
     # 规模异常提示：库行数远多于新清单条目时，removed 大概率是数据源不完整
     if (changes$total_removed > nrow(new_df)) {
       message("   !! Warning: removed count exceeds total new rows - the source list is",
-              " likely incomplete (e.g. truncated Wikipedia table). Review before applying.")
+              " likely incomplete (e.g. truncated export table). Review before applying.")
     }
   }
 

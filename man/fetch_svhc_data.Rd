@@ -6,23 +6,18 @@
 \title{SVHC 数据源分发}
 \usage{
 fetch_svhc_data(
-  source = c("auto", "wikipedia", "local", "echa"),
+  source = c("auto", "local", "echa"),
   inst_dir = file.path(getwd(), "inst"),
-  new_file = NULL,
-  wikipedia_url = "https://en.wikipedia.org/wiki/List_of_substances_of_very_high_concern"
+  new_file = NULL
 )
 }
 \arguments{
-\item{source}{"auto"（默认，echa -> local）、"wikipedia"、"local"、"echa"。
-Wikipedia 镜像不是官方源（且部分网络环境不可达），不进 auto 回退链，
-仅在显式 source = "wikipedia" 时使用}
+\item{source}{"auto"（默认，echa -> local）、"local"、"echa"}
 
 \item{inst_dir}{inst 目录}
 
 \item{new_file}{显式本地文件路径（优先于 source 分发直接读取；
 用于 check_manual_lists() 等场景精确消费某个手动放入的清单文件）}
-
-\item{wikipedia_url}{Wikipedia 页面地址}
 }
 \value{
 标准化后的 data.frame（蛇形列 + 化学列）

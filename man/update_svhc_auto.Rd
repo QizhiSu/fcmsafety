@@ -6,7 +6,7 @@
 \title{SVHC 自动更新（下载 -> diff -> 确认 -> 入库）}
 \usage{
 update_svhc_auto(
-  source = c("auto", "wikipedia", "local", "echa"),
+  source = c("auto", "local", "echa"),
   interactive = TRUE,
   auto_apply = FALSE,
   max_auto_changes = 20,
@@ -14,12 +14,11 @@ update_svhc_auto(
   db_path = NULL,
   backup = TRUE,
   update_xlsx = FALSE,
-  new_file = NULL,
-  wikipedia_url = "https://en.wikipedia.org/wiki/List_of_substances_of_very_high_concern"
+  new_file = NULL
 )
 }
 \arguments{
-\item{source}{数据源："auto"（wikipedia -> local）、"wikipedia"、"local"、"echa"}
+\item{source}{数据源："auto"（echa -> local）、"local"、"echa"}
 
 \item{interactive}{是否交互确认}
 
@@ -37,8 +36,6 @@ update_svhc_auto(
 
 \item{new_file}{显式指定本地清单文件（xlsx/csv）直接读取并更新，
 优先于 source 分发；用于 check_manual_lists() 精确消费手动放入的文件}
-
-\item{wikipedia_url}{Wikipedia 页面地址（可换镜像）}
 }
 \value{
 list(success, changes, db_write)
