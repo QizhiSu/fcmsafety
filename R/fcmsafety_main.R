@@ -1,11 +1,9 @@
 # =============================================================================
-# 包的主入口（面向用户的一层）：建库 / 状态 / 更新 / 体检
+# 包的主入口（面向用户的一层）：建库 / 状态 / 更新
 #
 # 本文件是用户"第一次上手"和"日常巡检"会碰到的函数，全部 @export：
 #   setup_fcmsafety_database()    一次性建库 + 从 xlsx 迁移（新装机器第一步跑它）
 #   fcmsafety_status()            看一眼数据库现在有什么、最近更新过什么
-#   validate_database_integrity() 体检：表是否存在、行数是否合理、外键是否断链
-#
 # 内部辅助（不导出）：
 #   display_database_summary()    控制台打印状态摘要
 #   backup_xlsx_files()           迁移前把 inst/ 下的 xlsx 备份走
@@ -168,7 +166,6 @@ fcmsafety_status <- function(show_recent_activity = TRUE) {
   message("   • assign_toxicity() - Screen chemicals against regulatory databases")
   message("   • update_database_auto() - One-click update of all databases")
   message("   • get_update_history() - View change history")
-  message("   • get_database_statistics() - Detailed statistics")
 
   return(invisible(status))
 }
@@ -222,145 +219,3 @@ backup_xlsx_files <- function(backup_dir = NULL) {
   }
 }
 
-# ---- 体检：结构完整性校验（@export） ----------------------------------------
-
-#' Validate Database Integrity
-#'
-#' Performs comprehensive validation of the database system, checking for
-#' data consistency, missing records, and potential issues.
-#'
-#' @param fix_issues Logical, whether to attempt automatic fixes
-#' @param db_path Optional custom path to database file (for testing)
-#' @return List with validation results
-#' @export
-#' @encoding UTF-8
-validate_database_integrity <- function(fix_issues = FALSE, db_path = NULL) {
-  message("🔍 Validating database integrity...")
-
-  validation_results <- list(
-    passed = TRUE,
-    issues = list(),
-    fixes_applied = list()
-  )
-
-  tryCatch({
-    con <- get_db_connection(db_path)
-    on.exit(DBI::dbDisconnect(con))
-
-    # Check 1: Verify all tables exist
-    required_tables <- c("chemicals", "svhc", "cmr", "cmr_suspect", "iarc",
-                        "eu_sml", "eu_sml_group", "edc", "china_sml",
-                        "database_metadata", "update_history", "change_log")
-
-    existing_tables <- DBI::dbListTables(con)
-    missing_tables <- setdiff(required_tables, existing_tables)
-
-    if (length(missing_tables) > 0) {
-      validation_results$passed <- FALSE
-      validation_results$issues$missing_tables <- missing_tables
-      message("❌ Missing tables: ", paste(missing_tables, collapse = ", "))
-    } else {
-      message("✅ All required tables present")
-    }
-
-    # Check 2: Verify foreign key relationships
-    message("🔗 Checking foreign key relationships...")
-
-    # Check for orphaned records in regulatory tables
-    for (table in c("svhc", "cmr", "cmr_suspect", "iarc", "eu_sml", "eu_sml_group", "edc")) {
-      if (!DBI::dbExistsTable(con, table)) {
-        message("   ℹ️  Table ", table, " missing - skipping orphan check")
-        next
-      }
-      orphan_query <- paste0("
-        SELECT COUNT(*) as orphan_count
-        FROM ", table, " t
-        LEFT JOIN chemicals c ON t.InChIKey = c.InChIKey
-        WHERE c.InChIKey IS NULL AND t.InChIKey IS NOT NULL
-      ")
-
-      orphan_count <- DBI::dbGetQuery(con, orphan_query)$orphan_count[1]
-
-      if (orphan_count > 0) {
-        validation_results$passed <- FALSE
-        validation_results$issues[[paste0(table, "_orphans")]] <- orphan_count
-        message("❌ ", table, ": ", orphan_count, " orphaned records")
-
-        if (fix_issues) {
-          # Attempt to fix by adding missing chemicals
-          message("🔧 Attempting to fix orphaned records...")
-          # Implementation would depend on specific requirements
-        }
-      }
-    }
-
-    # Check 3: Verify data consistency
-    message("📊 Checking data consistency...")
-
-    if (!DBI::dbExistsTable(con, "chemicals")) {
-      message("ℹ️  chemicals table missing - skipping data consistency check")
-    } else {
-      # Check for duplicate InChIKeys in chemicals table
-      dup_query <- "SELECT InChIKey, COUNT(*) as count FROM chemicals GROUP BY InChIKey HAVING COUNT(*) > 1"
-      duplicates <- DBI::dbGetQuery(con, dup_query)
-
-      if (nrow(duplicates) > 0) {
-        validation_results$passed <- FALSE
-        validation_results$issues$duplicate_chemicals <- nrow(duplicates)
-        message("❌ ", nrow(duplicates), " duplicate InChIKeys in chemicals table")
-      }
-    }
-
-    # Check 4: Verify metadata consistency
-    message("📋 Checking metadata consistency...")
-
-    if (!DBI::dbExistsTable(con, "database_metadata")) {
-      message("ℹ️  database_metadata table missing - skipping metadata check")
-    } else {
-      metadata_query <- "SELECT database_name, total_records FROM database_metadata"
-      metadata <- DBI::dbGetQuery(con, metadata_query)
-
-      for (i in 1:nrow(metadata)) {
-        db_name <- metadata$database_name[i]
-        expected_count <- metadata$total_records[i]
-
-        if (DBI::dbExistsTable(con, db_name)) {
-          actual_count <- DBI::dbGetQuery(con, paste("SELECT COUNT(*) as count FROM", db_name))$count[1]
-
-          if (actual_count != expected_count) {
-            validation_results$passed <- FALSE
-            validation_results$issues[[paste0(db_name, "_count_mismatch")]] <-
-              list(expected = expected_count, actual = actual_count)
-            message("❌ ", db_name, ": Expected ", expected_count, " records, found ", actual_count)
-
-            if (fix_issues) {
-              # Update metadata
-              DBI::dbExecute(con,
-                "UPDATE database_metadata SET total_records = ? WHERE database_name = ?",
-                params = list(actual_count, db_name))
-              validation_results$fixes_applied[[paste0(db_name, "_count")]] <- TRUE
-              message("🔧 Updated metadata for ", db_name)
-            }
-          }
-        }
-      }
-    }
-
-    if (validation_results$passed) {
-      message("✅ Database integrity validation passed!")
-    } else {
-      message("⚠️  Database integrity issues found")
-      if (!fix_issues) {
-        message("💡 Use fix_issues = TRUE to attempt automatic repairs")
-      }
-    }
-
-    return(invisible(validation_results))
-
-  }, error = function(e) {
-    message("❌ Validation failed: ", e$message)
-    validation_results$passed <- FALSE
-    validation_results$error <- e$message
-    return(invisible(validation_results))
-  })
-}

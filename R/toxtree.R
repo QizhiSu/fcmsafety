@@ -2,7 +2,6 @@
 # Toxtree 集成（Cramer 分类）
 #
 # 本文件收纳所有 Toxtree 相关接口：
-#   - export4toxtree()    导出 Toxtree 批处理输入文件
 #   - run_toxtree()       R 内直接调用 Toxtree CLI 完成 Cramer 分类，
 #                         产出 assign_toxicity() 可直接消费的 toxtree_results.csv
 #   - ensure_toxtree_jar() jar 查找/按需下载（内部函数）
@@ -17,46 +16,7 @@
 #     因此必须 cd 到应用目录再启动 java（system2 不支持设 cwd，用 system()）。
 # =============================================================================
 
-# ---- 导出 Toxtree 批处理输入文件 -------------------------------------------
-
-#' Export input file for toxtree batch processing
-#'
-#' After \code{extract_cid()} and \code{extract_meta()} for your data, you can
-#' use this function to export a *.csv file that can be used by the Toxtree
-#' software for batch processing.
-#'
-#' @param data Your data after the \code{extract_cid()} and \code{extract_meta()}
-#' steps
-#' @param cas_col The index of column that contains CAS information. CAS number
-#' is not mandatory for each compound, if no CAS is available, then chemical name
-#' will be used for retreival. However, a column index is still required.
-#' @param name_col The index of column that contains chemical name.
-#' @param output The output file name end with .csv. The default value is
-#' "for_toxtree.csv"
-#'
-#' @return No return but a *.csv file for Toxtree.
-#'
-#' @import dplyr
-#' @importFrom rio export
-#'
-#' @export
-#' @encoding UTF-8
-export4toxtree <-
-  function(data, cas_col,
-           name_col,
-           output = "for_toxtree.csv") {
-    data <- data %>%
-      mutate(
-        NAME = .[, name_col],
-        CAS = .[, cas_col],
-        SMILES = SMILES
-      ) %>%
-      select(NAME, CAS, SMILES) %>%
-      filter(!is.na(SMILES))
-
-    rio::export(data, output)
-  }
-
+# ---- R 内直接调用 Toxtree CLI ----------------------------------------------
 
 # ---- jar 管理：查找 / 下载 / 解压 ------------------------------------------
 

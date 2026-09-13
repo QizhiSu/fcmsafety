@@ -1,19 +1,4 @@
-# Toxtree 集成测试：export4toxtree 迁移回归 + 归一化单测 + CLI 集成冒烟
-
-test_that("export4toxtree 产出只含三列且丢弃无 SMILES 的行", {
-  d <- data.frame(
-    NAME = c("A", "B", "C"),
-    CAS = c("1", "2", NA),
-    SMILES = c("CCO", NA, "c1ccccc1"),
-    stringsAsFactors = FALSE
-  )
-  out <- tempfile(fileext = ".csv")
-  export4toxtree(d, cas_col = 2, name_col = 1, output = out)
-  res <- utils::read.csv(out)
-  expect_identical(names(res), c("NAME", "CAS", "SMILES"))
-  expect_equal(nrow(res), 2)  # B 无 SMILES，应被丢弃
-  expect_false("A" %in% res$NAME && "B" %in% res$NAME)  # A 在、B 不在
-})
+# Toxtree 集成测试：归一化单测 + CLI 集成冒烟
 
 test_that("normalize: CLI 列名 Cramer rules（空格）归一化为 Cramer.rules", {
   # 模拟 2026-09-08 实测的 CLI 输出列结构

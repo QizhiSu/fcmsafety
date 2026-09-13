@@ -4,7 +4,9 @@ fcmsafety
 true
 
 <!-- README.md is generated from README.Rmd. Please edit that file -->
+
 <!-- badges: start -->
+
 <!-- badges: end -->
 
 # Introduction
@@ -59,11 +61,11 @@ library(dplyr)
 
 # Update and Load databases
 
-The package ships with pre-prepared databases (updated on 2021/11/11) that are
-loaded by default, so updating is optional. To refresh a source database to the
-latest version, use the incremental per-source updaters (they write to the
-SQLite database `inst/fcmsafety.db`). The legacy full re-download function
-`update_databases()` has been removed.
+The package ships with pre-prepared databases (updated on 2021/11/11)
+that are loaded by default, so updating is optional. To refresh a source
+database to the latest version, use the incremental per-source updaters
+(they write to the SQLite database `inst/fcmsafety.db`). The legacy full
+re-download function `update_databases()` has been removed.
 
 ``` r
 fcmsafety::update_svhc_auto()                # SVHC candidate list
@@ -72,11 +74,8 @@ fcmsafety::update_iarc_auto()                # IARC classifications
 fcmsafety::update_eu_sml_auto(enrich = TRUE) # EU 10/2011 positive list
 ```
 
-Load the databases into the global environment:
-
-``` r
-load_databases()
-```
+No load step is needed: `assign_toxicity()` and `run_screening()` read
+the SQLite database directly.
 
 # Process your data
 
@@ -92,29 +91,13 @@ the following code to process your data. Otherwise, you need to firstly
 extract metadata from Pubchem using the
 [***labtools***](https://github.com/QizhiSu/labtools).
 
-## Export file for Toxtree
-
-For compounds that do not present in any of the databases we consider
-here, we can use Toxtree (<http://toxtree.sourceforge.net/>) to predict
-its Cramer rules level which will be used for assigning toxicity level
-in the following step. We now can export a file that can be used by
-Toxtree for batch processing.
-
-``` r
-# This code will generate a file name "for_toxtree.csv"
-export4toxtree(data, cas_col = 1, name_col = 2)
-# Of course, you can also specify the path and name of the output file
-export4toxtree(data, cas_col = 1, name_col = 2, output = "D:/data/mydata_for_toxtree.csv")
-```
-
-## Run Toxtree from R (recommended)
+## Run Toxtree from R
 
 `run_toxtree()` calls the Toxtree headless (command-line) mode directly
 from R, so the manual GUI batch processing step below is no longer
 needed. On first use, it downloads the Toxtree application (about 81 MB,
 one-time) from SourceForge into a local cache directory outside the
-package. Java 8 or newer must be installed
-(<https://adoptium.net>).
+package. Java 8 or newer must be installed (<https://adoptium.net>).
 
 ``` r
 # Runs the classic Cramer rules and writes "toxtree_results.csv"

@@ -9,7 +9,6 @@
 #   首次建库    initialize_database() / migrate_xlsx_to_sqlite()
 #               import_xlsx() / resolve_xlsx_mapping() / match_col() / norm_col_name()
 #               —— 从 inst/ 下的 xlsx 把数据搬进 SQLite
-#   旧接口装载  load_databases_sqlite() / process_database_for_migration()
 #               process_raw_for_migration()
 #               —— 旧线"把库读进全局环境"的兼容路径，新代码不要用
 #
@@ -1235,61 +1234,3 @@ process_database_for_migration <- function(data, db_name) {
   return(processed)
 }
 
-# ---- 旧接口：把库读进全局环境（兼容用，新代码别调） --------------------------
-
-#' Load Databases from SQLite into Global Environment
-#'
-#' Reads all regulatory databases from the SQLite database into the global
-#' environment, using the compatibility views where available so that
-#' column names match the original xlsx-sourced table format.
-#'
-#' @param db_path Optional custom path to database file (for testing)
-#' @return Invisibly TRUE on success
-#' @export
-#' @encoding UTF-8
-load_databases_sqlite <- function(db_path = NULL) {
-  con <- get_db_connection(db_path)
-  on.exit(DBI::dbDisconnect(con))
-
-  tables <- DBI::dbListTables(con)
-  required <- c("svhc", "cmr", "cmr_suspect", "iarc", "eu_sml",
-                "eu_sml_group", "edc", "china_sml")
-  missing <- setdiff(required, tables)
-  if (length(missing) > 0) {
-    stop("SQLite database missing required tables: ", paste(missing, collapse = ", "))
-  }
-
-  # Use compatibility views when available, otherwise query tables directly.
-  # query_df() also strips SQLite connection attributes to avoid the
-  # "call dbDisconnect() when finished working" warning on global assignment.
-  query_df <- function(sql) {
-    df <- DBI::dbGetQuery(con, sql)
-    attr(df, "connection") <- NULL
-    df
-  }
-  get_table <- function(view_name, table_name) {
-    if (view_name %in% tables) {
-      query_df(paste("SELECT * FROM", view_name))
-    } else {
-      query_df(paste("SELECT * FROM", table_name))
-    }
-  }
-
-  svhc_loaded <- get_table("view_svhc", "svhc")
-  svhc_meta <<- svhc_loaded[!is.na(svhc_loaded$InChIKey), , drop = FALSE]
-  cmr_loaded <- get_table("view_cmr", "cmr")
-  cmr_meta <<- cmr_loaded[!is.na(cmr_loaded$InChIKey), , drop = FALSE]
-  cmr_suspect_loaded <- query_df("SELECT * FROM cmr_suspect")
-  cmr_suspect_meta <<- cmr_suspect_loaded[!is.na(cmr_suspect_loaded$InChIKey), , drop = FALSE]
-  iarc_loaded <- query_df("SELECT * FROM iarc")
-  iarc_meta <<- iarc_loaded[!is.na(iarc_loaded$InChIKey), , drop = FALSE]
-  eu_sml_loaded <- query_df("SELECT * FROM eu_sml")
-  eu_sml_meta <<- eu_sml_loaded[!is.na(eu_sml_loaded$InChIKey), , drop = FALSE]
-  eu_sml_group <<- query_df("SELECT * FROM eu_sml_group")
-  edc_loaded <- query_df("SELECT * FROM edc")
-  edc_meta <<- edc_loaded[!is.na(edc_loaded$InChIKey), , drop = FALSE]
-  china_sml_meta <<- query_df("SELECT * FROM china_sml")
-
-  message("✅ Loaded databases from SQLite into global environment")
-  return(invisible(TRUE))
-}

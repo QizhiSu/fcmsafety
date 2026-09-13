@@ -68,11 +68,8 @@ fcmsafety::update_iarc_auto()                # IARC classifications
 fcmsafety::update_eu_sml_auto(enrich = TRUE) # EU 10/2011 positive list
 ```
 
-Load the databases into the global environment:
-
-```{r}
-load_databases()
-```
+No load step is needed: `assign_toxicity()` and `run_screening()` read the
+SQLite database directly.
 
 # Process your data
 ## Read in your data
@@ -84,18 +81,7 @@ data <- rio::import("D:/my data/mydata.xlsx")
 
 Given that your data have at least SMILES and CAS numbers, you can use the following code to process your data. Otherwise, you need to firstly extract metadata from Pubchem using the [***labtools***](https://github.com/QizhiSu/labtools).
 
-## Export file for Toxtree
-
-For compounds that do not present in any of the databases we consider here, we can use Toxtree (http://toxtree.sourceforge.net/) to predict its Cramer rules level which will be used for assigning toxicity level in the following step. We now can export a file that can be used by Toxtree for batch processing. 
-
-```{r}
-# This code will generate a file name "for_toxtree.csv"
-export4toxtree(data, cas_col = 1, name_col = 2)
-# Of course, you can also specify the path and name of the output file
-export4toxtree(data, cas_col = 1, name_col = 2, output = "D:/data/mydata_for_toxtree.csv")
-```
-
-## Run Toxtree from R (recommended)
+## Run Toxtree from R
 
 `run_toxtree()` calls the Toxtree headless (command-line) mode directly from R, so the manual GUI batch processing step below is no longer needed. On first use, it downloads the Toxtree application (about 81 MB, one-time) from SourceForge into a local cache directory outside the package. Java 8 or newer must be installed (https://adoptium.net).
 

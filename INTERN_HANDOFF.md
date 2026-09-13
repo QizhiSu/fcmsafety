@@ -27,9 +27,6 @@ data <- rio::import("my_detected_compounds.xlsx")
 # run_toxtree() 会生成 "toxtree_results.csv"。
 run_toxtree(data)
 
-# 也可以继续用导出 + GUI 手动批处理的老流程（export4toxtree 导出给 Toxtree 软件）。
-export4toxtree(data, cas_col = 1, name_col = 2)
-
 # 拿到 Cramer rules 结果后，执行风险数据库匹配。
 result <- assign_toxicity(data, toxtree_result = "toxtree_results.csv")
 ```
