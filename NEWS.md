@@ -1,5 +1,13 @@
 # fcmsafety 0.1.6 (unreleased)
 
+## Drop one-off diagnostic scripts
+- tools/archive/ (10 CMR-migration-era diagnostics) and the Sept troubleshooting
+  scripts (audit_group_hits, compare_group_membership, probe_substance,
+  diagnose_diff_columns, test_auto_update_line, rehearse_full_alignment,
+  diagnose_group_element_layer.py) are deleted; git history keeps them.
+  Kept: run_tests / run_one_test / run_check / check_section_markers /
+  echacl_download.cjs / install_fcmsafety.sh.
+
 ## Remove the Wikipedia SVHC source entirely
 - `fetch_svhc_wikipedia()` is deleted and the `"wikipedia"` source option is
   gone from `fetch_svhc_data()` / `update_svhc_auto()` /
