@@ -25,7 +25,7 @@ fetch_source_data(
 标准化后的 data.frame
 }
 \description{
-四个 fetch_*_data 孪生体的唯一实现：显式文件 -> 下载（可配置失败回退本地）->
+各库取数的唯一实现：显式文件 -> 下载（可配置失败回退本地）->
 本地候选名 -> meta 兜底，各分支的 sheet / 表头层数由 DB_SOURCES 注册表的
 fetch 配置决定，最后统一 normalize（CLP 派生的两库再按 H 码筛）。
 }

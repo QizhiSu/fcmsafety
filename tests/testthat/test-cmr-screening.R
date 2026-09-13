@@ -1,4 +1,4 @@
-# CMR 子集筛选回归（fetch_cmr_data / fetch_cmr_suspect_data）。
+# CMR 子集筛选回归（fetch_source_data 的 H 码筛选）。
 #
 # 背景：这两个函数的 H 码筛选原先只在 source = "download" 分支执行，local
 # 分支（含"手动放入 clp_new.xlsx"和回退 clp_cmr_meta.xlsx）直接返回整表，
@@ -22,20 +22,20 @@ make_clp_csv <- function() {
   p
 }
 
-test_that("fetch_cmr_data screens the local source too", {
+test_that("fetch_source_data(cmr) screens the local source too", {
   p <- make_clp_csv()
-  df <- fcmsafety:::fetch_cmr_data(source = "local", new_file = p,
-                                   inst_dir = tempdir())
+  df <- fcmsafety:::fetch_source_data("cmr", source = "local", new_file = p,
+                                      inst_dir = tempdir())
 
   # 只有含 H340/H350/H360 的行留下；纯 H302 行必须被剔除
   expect_setequal(df$InChIKey, c("KEYVAAA", "KEYVB"))
   unlink(p)
 })
 
-test_that("fetch_cmr_suspect_data screens the local source too", {
+test_that("fetch_source_data(cmr_suspect) screens the local source too", {
   p <- make_clp_csv()
-  df <- fcmsafety:::fetch_cmr_suspect_data(source = "local", new_file = p,
-                                           inst_dir = tempdir())
+  df <- fcmsafety:::fetch_source_data("cmr_suspect", source = "local", new_file = p,
+                                      inst_dir = tempdir())
 
   expect_setequal(df$InChIKey, "KEYIVAAA")
   unlink(p)

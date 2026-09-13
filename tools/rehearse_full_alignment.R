@@ -258,11 +258,8 @@ for (sp in SPECS) {
 # modified 的 key 比列，按"该列实际值不同的行数"排序。
 section("R3b 残余 modified 的列级成因（追赶后仍在变的，是哪些列在顶）")
 resid_one <- function(sp) {
-  new_df <- switch(sp$db,
-    cmr = fetch_cmr_data(source = "local", new_file = file.path(DL, sp$f)),
-    cmr_suspect = fetch_cmr_suspect_data(source = "local", new_file = file.path(DL, sp$f)),
-    iarc = fetch_iarc_data(source = "local", new_file = file.path(DL, sp$f)),
-    eu_sml = fetch_eu_sml_data(source = "local", new_file = file.path(DL, sp$f)))
+  new_df <- fetch_source_data(sp$db, source = "local",
+                              new_file = file.path(DL, sp$f))
   mapped <- map_to_db_columns(new_df, sp$db, DB)
   con <- get_db_connection(DB); on.exit(DBI::dbDisconnect(con), add = TRUE)
   cur <- DBI::dbGetQuery(con, paste("SELECT * FROM", sp$db))

@@ -91,10 +91,7 @@ VERDICT <- c(
 diag_one <- function(db, file, key_col, fallback_col, cas_col, name_col, sheet = NULL) {
   section(paste0(db, "  (源文件: ", basename(file), ")"))
   new_df <- tryCatch({
-    if (db == "iarc") fetch_iarc_data(source = "local", new_file = file)
-    else if (db == "cmr") fetch_cmr_data(source = "local", new_file = file)
-    else if (db == "cmr_suspect") fetch_cmr_suspect_data(source = "local", new_file = file)
-    else fetch_eu_sml_data(source = "local", new_file = file)
+    fetch_source_data(db, source = "local", new_file = file)
   }, error = function(e) { log_line("读取源失败: ", conditionMessage(e)); NULL })
   if (is.null(new_df)) return(invisible(NULL))
   log_line("源行数: ", nrow(new_df))

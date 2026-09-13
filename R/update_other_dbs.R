@@ -407,8 +407,8 @@ normalize_eu_sml_values <- function(df) {
 #                候选 / meta 兜底）各自的 sheet 与表头层数、期望列、normalize
 #                函数、H 码筛选（screen_kind，仅 CLP 派生的两库）
 # 新增一个法规库的触点因此收敛为：① schema.sql 建表 ② download_sources.R 加
-# 下载函数 ③ 这里加一条注册项。注意 fetch 层是 internal，可自由演进；四个
-# 导出 update_*_auto 与四个 fetch_*_data 保留原签名作为薄壳（测试与用户依赖）。
+# 下载函数 ③ 这里加一条注册项。注意 fetch 层是 internal，可自由演进；
+# 导出 update_*_auto 保留原签名作为薄壳（测试与用户依赖）。
 # 人工新清单探测集（manual_candidates）同样登记在此：manual_list_check.R 的
 # file_map 与 database_inspector_app.R 的 UPDATE_DBS 均由此派生。
 # 仍独立的登记点：incremental_update.R 的 db_col_candidates（逐库列名差异）、
@@ -517,7 +517,7 @@ resolve_source_file <- function(candidates, inst_dir = file.path(getwd(), "inst"
 
 #' 注册表驱动的通用取数（internal）
 #'
-#' 四个 fetch_*_data 孪生体的唯一实现：显式文件 -> 下载（可配置失败回退本地）->
+#' 各库取数的唯一实现：显式文件 -> 下载（可配置失败回退本地）->
 #' 本地候选名 -> meta 兜底，各分支的 sheet / 表头层数由 DB_SOURCES 注册表的
 #' fetch 配置决定，最后统一 normalize（CLP 派生的两库再按 H 码筛）。
 #'
@@ -587,67 +587,6 @@ fetch_source_data <- function(db_name, source = c("local", "download"),
                            two_row_header = two_hdr)
   df <- cfg$normalize(raw)
   if (is.null(cfg$screen_kind)) df else screen_clp(df, cfg$screen_kind)
-}
-
-#' 获取 CMR 数据（local / download）
-#'
-#' local 优先读 clp_new.xlsx / clp_new.csv / annex_vi_clp.xlsx，找不到则回退
-#' clp_cmr_meta.xlsx 的 "cmr" 工作表；download 调 download_clp() 下载原始导出。
-#' 两条路径最后**一律**按 H 码（H340/H350/H360）筛出 CMR 子集后再返回。
-#'
-#' @param source "local" 或 "download"
-#' @param new_file 显式文件路径（优先于候选名）
-#' @param inst_dir inst 目录
-#' @return 标准化后的 data.frame
-#' @keywords internal
-#' @encoding UTF-8
-fetch_cmr_data <- function(source = c("local", "download"), new_file = NULL,
-                           inst_dir = file.path(getwd(), "inst")) {
-  fetch_source_data("cmr", source = source, new_file = new_file, inst_dir = inst_dir)
-}
-
-#' 获取 CMR_suspect 数据（local / download）
-#'
-#' local 读 clp_cmr_meta.xlsx 的 "cmr_suspect" 工作表；download 调 download_clp()。
-#' 两条路径最后**一律**按 H 码（H341/H351/H361）筛出疑似 CMR 子集后再返回。
-#'
-#' @param source "local" 或 "download"
-#' @param new_file 显式文件路径（可选，默认读 meta 文件的 cmr_suspect 工作表）
-#' @param inst_dir inst 目录
-#' @return 标准化后的 data.frame
-#' @keywords internal
-#' @encoding UTF-8
-fetch_cmr_suspect_data <- function(source = c("local", "download"),
-                                   new_file = NULL,
-                                   inst_dir = file.path(getwd(), "inst")) {
-  fetch_source_data("cmr_suspect", source = source, new_file = new_file,
-                    inst_dir = inst_dir)
-}
-
-#' 获取 IARC 数据（local / download）
-#'
-#' @param source "local" 或 "download"
-#' @param new_file 显式文件路径
-#' @param inst_dir inst 目录
-#' @return 标准化后的 data.frame
-#' @keywords internal
-#' @encoding UTF-8
-fetch_iarc_data <- function(source = c("local", "download"), new_file = NULL,
-                            inst_dir = file.path(getwd(), "inst")) {
-  fetch_source_data("iarc", source = source, new_file = new_file, inst_dir = inst_dir)
-}
-
-#' 获取 EU SML 数据（local / download）
-#'
-#' @param source "local" 或 "download"
-#' @param new_file 显式文件路径
-#' @param inst_dir inst 目录
-#' @return 标准化后的 data.frame
-#' @keywords internal
-#' @encoding UTF-8
-fetch_eu_sml_data <- function(source = c("local", "download"), new_file = NULL,
-                              inst_dir = file.path(getwd(), "inst")) {
-  fetch_source_data("eu_sml", source = source, new_file = new_file, inst_dir = inst_dir)
 }
 
 # ---- 各源入口：update_*_auto()（CMR / CMR_suspect / IARC / EU_SML） ----------
