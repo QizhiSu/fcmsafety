@@ -1,5 +1,13 @@
 # fcmsafety 0.1.6 (unreleased)
 
+## Split the Shiny monolith into ui / server / launcher
+- `database_inspector_app.R` (3191 lines, the whole app inside one
+  function) is now three files: `app_ui.R` (`fcm_app_ui()`, static UI
+  assembly), `app_server.R` (`fcm_app_server()`, all reactive logic) and
+  `database_inspector_app.R` (the exported `launch_database_inspector()`
+  entry with port/browser handling). Behavior verified byte-identical:
+  the served app HTML from before and after the split is the same.
+
 ## Drop one-off diagnostic scripts
 - tools/archive/ (10 CMR-migration-era diagnostics) and the Sept troubleshooting
   scripts (audit_group_hits, compare_group_membership, probe_substance,

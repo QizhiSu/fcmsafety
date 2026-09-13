@@ -83,7 +83,9 @@ res <- assign_toxicity(x, output_file = "report.xlsx")
 
 | 文件 | 行数 | 职责 |
 |---|---:|---|
-| `database_inspector_app.R` | ~3000 | Shiny 查看器。**整个包在一个函数里**，只有 1 个导出函数。一键操作面板见 ADR 0011；筛查面板（上传清单 → run_screening → 等级分布 + 报告下载）见"筛查面板"注释块 |
+| `database_inspector_app.R` | ~130 | Shiny 入口 `launch_database_inspector()`（端口/浏览器/启动） |
+| `app_ui.R` | ~1550 | `fcm_app_ui()`：纯静态 UI 拼装（CSS/JS/顶栏/快捷按钮/侧栏/主布局），分区标记 `# ---- UI 之 ...` |
+| `app_server.R` | ~1600 | `fcm_app_server()`：全部响应式逻辑（values/i18n/主数据表/结构式/一键操作/筛查面板），分区标记见文件头 |
 | `update_run_guard.R` | ~180 | 一键更新的守卫与判读：防积压点击 / 预演结果判读 / 逐库跑一轮。**纯函数，有测试覆盖**，改更新按钮先看这里 |
 | `fcmsafety_main.R` | ~220 | 建库 / 状态两个面向用户的入口 |
 | `update_history_audit.R` | ~300 | 读更新账本，回答"这条数据什么时候进来的" |
@@ -112,7 +114,7 @@ res <- assign_toxicity(x, output_file = "report.xlsx")
 | Cramer 分级不对 | `toxtree.R` | **改完必须重装包**；Toxtree 以 cwd 定位 `ext/` |
 | 查为什么某物质"查不到" | `direct_sql_toxicity.R` 的 `query_*_data()` + Issues 表 | 先看 Issues sheet 有没有查询失败记录 |
 | IARC 组条目判定太严/太松 | `group_membership.R` 的 `screen_iarc_groups()` | 两条护栏只能作用于 `element` 层，别扩大范围 |
-| Shiny 界面加个按钮 | `database_inspector_app.R` 搜 `# ---- UI` 与 `# ---- 一键操作面板` | 文案要同时进 i18n 文案表 |
+| Shiny 界面加个按钮 | UI 加在 `app_ui.R`，逻辑加在 `app_server.R`（搜各 `# ----` 分区） | 文案要同时进 i18n 文案表 |
 | 报告说"数据库连接失败" | `sqlite_database_manager.R` 的 `.resolve_db_path()` | **必须在项目根目录跑**，否则会连到别的库或建空库 |
 
 ---
