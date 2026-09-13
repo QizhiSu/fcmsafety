@@ -93,10 +93,13 @@ setup_fcmsafety_database <- function(force_reinit = FALSE, backup_xlsx = TRUE) {
       stop("Database initialization failed")
     }
 
-    # Migrate data
-    message("🔄 Migrating data from xlsx to SQLite...")
-    if (!migrate_xlsx_to_sqlite()) {
-      stop("Data migration failed")
+    # Migrate data. force_reinit 时 initialize_database() 已原子重建并完成
+    # 迁移（直接 return migrate_xlsx_to_sqlite()），再跑是白做全套
+    if (!force_reinit) {
+      message("🔄 Migrating data from xlsx to SQLite...")
+      if (!migrate_xlsx_to_sqlite()) {
+        stop("Data migration failed")
+      }
     }
 
     # Verify setup

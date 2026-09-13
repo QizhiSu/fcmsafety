@@ -264,7 +264,8 @@ run_toxtree <- function(data,
   # --- 输入校验 ---
   if (!"SMILES" %in% names(data)) {
     stop("Input data must contain a 'SMILES' column. ",
-         "Run extract_cid()/extract_meta() first.", call. = FALSE)
+         "Run prepare_input() first to derive one from chemical names.",
+         call. = FALSE)
   }
   java_bin <- Sys.which("java")
   if (!nzchar(java_bin)) {

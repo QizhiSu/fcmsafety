@@ -512,19 +512,6 @@ migrate_cmr_suspect_index_no <- function(db_path = NULL, index_map = NULL,
 
 # ---- 列名归一与 xlsx 读取（服务于下面的迁移） --------------------------------
 
-#' Normalize Column Name for Fuzzy Matching
-#'
-#' Removes all whitespace and lowercases a column name so that xlsx columns
-#' with varying whitespace/newline layouts can be matched reliably.
-#'
-#' @param x Character vector of column names
-#' @return Normalized character vector
-#' @keywords internal
-#' @encoding UTF-8
-norm_col_name <- function(x) {
-  tolower(gsub("[[:space:]]+", "", x))
-}
-
 #' Fuzzy Column Lookup
 #'
 #' Finds a column in a data frame by matching against the normalized column

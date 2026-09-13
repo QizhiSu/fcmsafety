@@ -34,3 +34,5 @@
 ^\.yoyo$
 ^\.claude/.*
 ^\.yoyo/.*
+^\.zcode$
+^\.zcode/.*
