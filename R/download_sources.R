@@ -2,7 +2,7 @@
 # 各法规源的原始数据下载（纯 HTTP，不用浏览器）
 #
 # 本文件只负责"把官方原始文件抓下来存成 xlsx"，不解析、不入库 ——
-# 解析与入库在 update_other_dbs.R / auto_update_svhc.R。
+# 解析与入库在 update_dbs.R / update_svhc.R。
 #
 # 四个源与各自的下载函数：
 #   SVHC 候选清单  download_svhc()      直连 ECHA CHEM 的 fullExport 端点

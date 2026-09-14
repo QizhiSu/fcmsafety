@@ -1427,7 +1427,7 @@ write_changes_to_db <- function(db_name, changes, key_col, fallback_col = NULL, 
 
   record_update_ledger(con, db_name, changes, n_added, n_removed, n_modified,
                        old_df = old_snapshot,
-                       source_file = "incremental_update.R",
+                       source_file = "update_pipeline.R",
                        user_notes = "Incremental update with diff confirmation",
                        key_col = key_col, fallback_col = fallback_col)
 

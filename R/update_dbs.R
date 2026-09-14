@@ -3,7 +3,7 @@
 #
 # 与 update_svhc_auto 同一套思路：下载/读本地 -> 标准化 -> 先 diff（用清单自有
 # 主键，如 Index No / Agent / FCM substance No）-> 只对真正新增的物质查 PubChem
-# -> 确认 -> 入库。核心逻辑全部复用 R/incremental_update.R 里的
+# -> 确认 -> 入库。核心逻辑全部复用 R/update_pipeline.R 里的
 # run_incremental_update()（对齐库表列 -> 回填老物质 -> 只补新增 -> diff -> 入库）。
 #
 # 各库主键（与重建后的蛇形 fcmsafety.db 表结构一致）：
@@ -415,7 +415,7 @@ normalize_eu_sml_values <- function(df) {
 # 增量更新线的全部逐库差异都是数据不是逻辑，集中登记在这里：
 #   label        人类可读名（报错与进度 message 用）
 #   line         "incremental"（走 run_incremental_update 公共流水线）或 "svhc"
-#                （独立一条线，见 auto_update_svhc.R；code-map 约定不迁公共线）
+#                （独立一条线，见 update_svhc.R；code-map 约定不迁公共线）
 #   key_col 等   run_incremental_update 的键/列参数
 #   fetch        取数配置：下载函数名与落盘名、各分支（显式文件 / 下载 / 本地
 #                候选 / meta 兜底）各自的 sheet 与表头层数、期望列、normalize
@@ -425,7 +425,7 @@ normalize_eu_sml_values <- function(df) {
 # 导出 update_*_auto 保留原签名作为薄壳（测试与用户依赖）。
 # 人工新清单探测集（manual_candidates）同样登记在此：manual_list_check.R 的
 # file_map 与 database_inspector_app.R 的 UPDATE_DBS 均由此派生。
-# 仍独立的登记点：incremental_update.R 的 db_col_candidates（逐库列名差异）、
+# 仍独立的登记点：update_pipeline.R 的 db_col_candidates（逐库列名差异）、
 # fetch_svhc_local 的本地回退名单（SVHC 独立线，含 svhc_meta 备份语义）。
 DB_SOURCES <- list(
   cmr = list(
@@ -507,7 +507,7 @@ DB_SOURCES <- list(
   svhc = list(
     label = "SVHC", line = "svhc",
     # svhc_meta.xlsx 刻意不在探测集：它是库内全量备份，不是人工新清单
-    # （fetch_svhc_local 的本地回退名单另有它，见 auto_update_svhc.R）
+    # （fetch_svhc_local 的本地回退名单另有它，见 update_svhc.R）
     manual_candidates = c("candidate_list.xlsx", "svhc_new.xlsx", "svhc_new.csv")
   )
 )
@@ -765,7 +765,7 @@ update_eu_sml_auto <- function(source = c("local", "download"), new_file = NULL,
 #
 # 定位：只做"排程"，不写任何更新逻辑。下载 / diff / 入库全部转发给各源子函数：
 # cmr / cmr_suspect / iarc / eu_sml -> update_source_auto()（注册表驱动），
-# svhc -> update_svhc_auto()（auto_update_svhc.R）。
+# svhc -> update_svhc_auto()（update_svhc.R）。
 # 维护约定：新增数据源 = DB_SOURCES 加一条注册项（名单与分发自动派生）；
 # 改某源行为 = 改注册项或对应子函数，这里不动。
 # =============================================================================

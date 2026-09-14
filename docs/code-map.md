@@ -13,9 +13,9 @@
 
 | 我想… | 调这个 | 在 |
 |---|---|---|
-| **把一批物质（含 InChIKey）跑完匹配 + 定级 + 报告** | **`assign_toxicity()`** | **`direct_sql_toxicity.R`** |
+| **把一批物质（含 InChIKey）跑完匹配 + 定级 + 报告** | **`assign_toxicity()`** | **`screening.R`** |
 | **更新法规库**（一键或按库） | **`update_database_auto()`** / `update_*_auto()` | `update_other_dbs.R` |
-| **看库里现在有什么 / GUI 筛查** | `launch_database_inspector()` | `app_launch.R` → `app_ui.R` + `app_server.R` |
+| **看库里现在有什么 / GUI 筛查** | `launch_database_inspector()` | `shiny_launch.R` → `shiny_ui.R` + `shiny_server.R` |
 
 ```r
 # 标准流程（数据先经 labtools::extract_meta() 拿到 InChIKey）
@@ -41,19 +41,19 @@ res <- assign_toxicity(data, output_file = "report.xlsx")
    inst/*.xlsx
         │
         │  update_other_dbs.R        CMR / CMR_suspect / IARC / EU_SML 调度
-        │  auto_update_svhc.R        SVHC 单独一条线（主键三级回退）
+        │  update_svhc.R             SVHC 单独一条线（主键三级回退）
         ▼
    incremental_update.R  ←── 四个库共用的公共流水线
         │   对齐库表列 → 回填老物质 → 只对新增查 PubChem → diff → 确认 → 入库
         ▼
    inst/fcmsafety.db（SQLite）
         │
-        │  direct_sql_toxicity.R     按 InChIKey 匹配 + 定级 I–V
+        │  screening.R               按 InChIKey 匹配 + 定级 I–V
         ▼
-   toxicity_report_export.R  →  report.xlsx
+   report_export.R  →  report.xlsx
 ```
 
-**记住一件事**：`incremental_update.R` 是四个库共用的。改它的行为会同时
+**记住一件事**：`update_pipeline.R` 是四个库共用的。改它的行为会同时
 影响 SVHC 之外的三个库 —— 这是本仓库最容易"改一处炸一片"的地方。
 
 ---
@@ -65,34 +65,35 @@ res <- assign_toxicity(data, output_file = "report.xlsx")
 | 文件 | 行数 | 职责 | 关键函数 |
 |---|---:|---|---|
 | `download_sources.R` | ~840 | 抓官方原始数据存 xlsx。**最易失效**（官网改版就废） | `download_svhc` `download_clp` `download_iarc` `download_eu_sml` |
-| `update_other_dbs.R` | ~870 | 四条更新线 + `DB_SOURCES` 注册表 + 总调度 | `update_database_auto()` `update_source_auto()` |
-| `auto_update_svhc.R` | ~700 | SVHC 单独一条线（主键三级回退，不迁公共流水线） | `update_svhc_auto()` |
-| `incremental_update.R` | ~1800 | 公共流水线：回填 / 补新增 / diff / 入库 / 变更明细 | `run_incremental_update()` |
-| `sqlite_database_manager.R` | ~1240 | 底座：连接/建表/迁移/装载 | `get_db_connection()` `migrate_xlsx_to_sqlite()` |
-| `direct_sql_toxicity.R` | ~1220 | **核心**：查库匹配 + 定级 I–V + 组汇总 | `assign_toxicity()` `compute_toxicity_levels()` |
-| `toxicity_report_export.R` | ~250 | 导出带样式的 Excel 报告 | `export_toxicity_report()` |
+| `update_dbs.R` | ~870 | 四条更新线 + `DB_SOURCES` 注册表 + 总调度 | `update_database_auto()` `update_source_auto()` |
+| `update_svhc.R` | ~700 | SVHC 单独一条线（主键三级回退，不迁公共流水线） | `update_svhc_auto()` |
+| `update_pipeline.R` | ~1800 | 公共流水线：回填 / 补新增 / diff / 入库 / 变更明细 | `run_incremental_update()` |
+| `database.R` | ~1240 | 底座：连接/建表/迁移/装载 | `get_db_connection()` `migrate_xlsx_to_sqlite()` |
+| `screening.R` | ~1160 | **核心**：查库匹配 + 定级 I–V + 组汇总 | `assign_toxicity()` `compute_toxicity_levels()` |
+| `report_export.R` | ~250 | 导出带样式的 Excel 报告 | `export_toxicity_report()` |
 
 ### 筛查辅助
 
 | 文件 | 行数 | 职责 |
 |---|---:|---|
-| `toxtree.R` | ~810 | Toxtree：rJava 快速路径 + CLI 回退 + jar 按需下载 | 
+| `toxtree.R` | ~810 | Toxtree：rJava 快速路径 + CLI 回退 + jar 按需下载 |
+| `iarc_see_aliases.R` | ~370 | IARC (see X) 别名解析（组条目引擎删除后的自洽保留部分） |
 
 ### GUI（三个文件）
 
 | 文件 | 行数 | 职责 |
 |---|---:|---|
-| `app_launch.R` | ~130 | `launch_database_inspector()`：端口/浏览器/启动 |
-| `app_ui.R` | ~1480 | `fcm_app_ui()`：纯静态 UI 拼装（CSS/JS/布局） |
-| `app_server.R` | ~1600 | `fcm_app_server()`：全部响应式逻辑（i18n/主表/一键操作/筛查面板） |
+| `shiny_launch.R` | ~130 | `launch_database_inspector()`：端口/浏览器/启动 |
+| `shiny_ui.R` | ~1480 | `fcm_app_ui()`：纯静态 UI 拼装（CSS/JS/布局） |
+| `shiny_server.R` | ~1600 | `fcm_app_server()`：全部响应式逻辑（i18n/主表/一键操作/筛查面板） |
 
 ### 支撑
 
 | 文件 | 行数 | 职责 |
 |---|---:|---|
-| `app_main.R` | ~220 | 建库 / 状态两个用户入口 |
-| `app_manual.R` | ~220 | 探测人工放进 `inst/` 的新清单并消费掉 |
-| `run_guard.R` | ~220 | 一键更新的守卫与判读（纯函数，有测试覆盖） |
+| `main.R` | ~220 | 建库 / 状态两个用户入口 |
+| `manual_lists.R` | ~220 | 探测人工放进 `inst/` 的新清单并消费掉 |
+| `update_guard.R` | ~220 | 一键更新的守卫与判读（纯函数，有测试覆盖） |
 | `update_audit.R` | ~300 | 读更新账本（`get_update_history()`） |
 | `globals.R` | ~35 | 声明全局变量消 check NOTE |
 
@@ -109,14 +110,14 @@ res <- assign_toxicity(data, output_file = "report.xlsx")
 
 | 想做的事 | 改哪 | 注意 |
 |---|---|---|
-| 调整毒性等级规则（如 SML 阈值） | `direct_sql_toxicity.R` 的 `compute_toxicity_levels()` 与顶部 `.cmr_*_h_codes` | 纯函数 |
-| 报告加一列 / 换配色 | `toxicity_report_export.R` 的样式区 | 只动 `.level_fills` / `.style_table()` |
-| 加一个新法规库 | ① `inst/fcmsafety_schema.sql` 加表 ② `download_sources.R` 加抓取 ③ `update_other_dbs.R` 的 `DB_SOURCES` 注册表加一条 ④ `incremental_update.R` 的 `db_col_candidates` 登记列名差异 | ③④ 漏了会静默不生效 |
+| 调整毒性等级规则（如 SML 阈值） | `screening.R` 的 `compute_toxicity_levels()` 与顶部 `.cmr_*_h_codes` | 纯函数 |
+| 报告加一列 / 换配色 | `report_export.R` 的样式区 | 只动 `.level_fills` / `.style_table()` |
+| 加一个新法规库 | ① `inst/fcmsafety_schema.sql` 加表 ② `download_sources.R` 加抓取 ③ `update_dbs.R` 的 `DB_SOURCES` 注册表加一条 ④ `incremental_update.R` 的 `db_col_candidates` 登记列名差异 | ③④ 漏了会静默不生效 |
 | 某官网抓不到了 | `download_sources.R` 对应函数 | 先读函数头注释（回退顺序在里面） |
 | Cramer 分级不对 | `toxtree.R` | **改完必须重装包** |
-| 查为什么某物质"查不到" | `direct_sql_toxicity.R` 的 `query_*_data()` + Issues 表 | 先看报告的 Issues sheet |
-| Shiny 界面加个按钮 | UI 在 `app_ui.R`，逻辑在 `app_server.R` | 文案要同时进 i18n 文案表 |
-| 报告说"数据库连接失败" | `sqlite_database_manager.R` 的 `.resolve_db_path()` | **必须在项目根目录跑** |
+| 查为什么某物质"查不到" | `screening.R` 的 `query_*_data()` + Issues 表 | 先看报告的 Issues sheet |
+| Shiny 界面加个按钮 | UI 在 `shiny_ui.R`，逻辑在 `shiny_server.R` | 文案要同时进 i18n 文案表 |
+| 报告说"数据库连接失败" | `database.R` 的 `.resolve_db_path()` | **必须在项目根目录跑** |
 
 ---
 

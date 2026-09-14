@@ -1,5 +1,21 @@
 # fcmsafety 0.1.6 (unreleased)
 
+## Rename R/ files to follow the data flow
+File names now tell the pipeline story instead of mixing three unrelated
+"app_*" meanings:
+- update family: update_dbs.R (was update_other_dbs.R), update_svhc.R
+  (was auto_update_svhc.R), update_pipeline.R (was incremental_update.R),
+  update_guard.R (was run_guard.R); update_audit.R unchanged
+- screening: screening.R (was direct_sql_toxicity.R - the name was a
+  legacy of the xlsx-to-SQLite migration), iarc_see_aliases.R unchanged
+- support: database.R (was sqlite_database_manager.R),
+  report_export.R (was toxicity_report_export.R), main.R (was app_main.R),
+  manual_lists.R (was app_manual.R)
+- GUI trio: shiny_launch.R / shiny_ui.R / shiny_server.R (were
+  app_launch.R / app_ui.R / app_server.R)
+Pure renames - no code moved or changed; update_history ledger labels for
+new writes use the new file names.
+
 ## Remove the group-entry matching subsystem
 - group_membership.R (1,621 lines: element judges, UVCB matching, the
   screen_* engine and its registry) is deleted, along with

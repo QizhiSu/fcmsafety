@@ -63,7 +63,7 @@ fcm_app_server <- function(input, output, session) {
       search_column = "all",
       quick_busy = FALSE,       # 一键操作是否正在运行（防重复点击）
       quick_lines = character(0), # 本轮任务的日志缓冲（同时实时推给页面）
-      last_run_end = NULL,      # 上一轮结束时刻：积压点击守卫用（见 update_run_guard.R）
+      last_run_end = NULL,      # 上一轮结束时刻：积压点击守卫用（见 update_update_guard.R）
       report_summary = NULL,    # 最近一次预演/写入的按库汇总表
       report_phase = "dry",     # 报告是预演还是写入结果
       screen_result = NULL      # 最近一次筛查（assign_toxicity）的结果表
@@ -1112,7 +1112,7 @@ fcm_app_server <- function(input, output, session) {
     # 事故复盘：Shiny 的**出站**消息（进度条 / 日志）在 R 阻塞期间照样送到浏览器，
     # 但**入站**消息（点击）要等 R 空下来才补送。于是全量更新跑着的时候页面
     # 按钮全哑、点击排队；任务一结束，排队的点击立刻又触发一轮 —— 用户永远
-    # 等不到"页面恢复"的那一刻。详见 R/update_run_guard.R 顶部与 ADR 0011。
+    # 等不到"页面恢复"的那一刻。详见 R/update_update_guard.R 顶部与 ADR 0011。
     #
     # 现在三道防线：
     #   1) 任务一开始就禁用按钮（页面侧），跑完再放开；
@@ -1344,7 +1344,7 @@ fcm_app_server <- function(input, output, session) {
     # 设计取舍：主数据表是"看库"的地方，筛查结果不往里灌——弹窗给
     # 等级分布与命中概览，完整逐行结果（含 Toxic_level_basis）在导出的报告里。
     # Toxtree 结果文件缺失时会现场自动运行（需 Java）；失败已降级为
-    # 仅法规匹配（见 direct_sql_toxicity.R），GUI 不会因此白跑。
+    # 仅法规匹配（见 screening.R），GUI 不会因此白跑。
     # ============================================================
     observeEvent(input$db_btn_screen, {
       shiny::showModal(shiny::modalDialog(

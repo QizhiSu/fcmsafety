@@ -530,7 +530,7 @@ write_svhc_to_db <- function(new_df, changes, db_path = NULL, backup = TRUE) {
   # SVHC 的键风格差异（key_fn/compare_cols）经 ... 透传
   record_update_ledger(con, "svhc", changes, n_added, n_removed, n_modified,
                        old_df = old_snapshot,
-                       source_file = "auto_update_svhc.R",
+                       source_file = "update_svhc.R",
                        user_notes = "Auto update with diff confirmation",
                        key_fn = svhc_key_of, compare_cols = svhc_content_columns)
 

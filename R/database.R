@@ -16,9 +16,9 @@
 # 工作目录下的 inst/fcmsafety.db。所以**必须在项目根目录跑**，换目录会拿到
 # 另一个库（或新建一个空库）——排查"查不到数据"时先确认这一条。
 #
-# 本文件不负责：增量比对（见 incremental_update.R）、各法规源抓取
-# （见 update_other_dbs.R / auto_update_svhc.R）、毒性定级
-# （见 direct_sql_toxicity.R）。
+# 本文件不负责：增量比对（见 update_pipeline.R）、各法规源抓取
+# （见 update_dbs.R / update_svhc.R）、毒性定级
+# （见 screening.R）。
 # =============================================================================
 
 #' SQLite Database Manager for FCMSafety

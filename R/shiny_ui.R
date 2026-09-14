@@ -2,7 +2,7 @@
 # Inspector 的 UI 构建（纯静态：CSS + JS + 顶栏 + 快捷按钮 + 侧栏 + 主布局）
 #
 # 从 database_inspector_app.R 拆出（2026-09-14）。fcm_app_ui() 不依赖任何
-# 响应式状态，只拼装 fluidPage 并返回；全部动态行为在 app_server.R 的
+# 响应式状态，只拼装 fluidPage 并返回；全部动态行为在 shiny_server.R 的
 # fcm_app_server() 里。分区标记：`# ---- UI 之 CSS / 之 JS / ...`。
 # =============================================================================
 

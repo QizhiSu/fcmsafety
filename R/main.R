@@ -9,9 +9,9 @@
 #   backup_xlsx_files()           迁移前把 inst/ 下的 xlsx 备份走
 #
 # 边界：本文件只做"调度与展示"。真正落库的逻辑在
-# sqlite_database_manager.R（建表/迁移/连接），增量比对在
-# incremental_update.R，各法规源的抓取在 update_other_dbs.R 与
-# auto_update_svhc.R。想改数据怎么进来，别在这个文件里找。
+# database.R（建表/迁移/连接），增量比对在
+# update_pipeline.R，各法规源的抓取在 update_dbs.R 与
+# update_svhc.R。想改数据怎么进来，别在这个文件里找。
 #
 # 注意：文件头说明用普通注释（而非 roxygen #'），否则会被 roxygen2
 # 误配给其后第一个函数而抢占它的文档 title。
