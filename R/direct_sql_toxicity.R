@@ -34,6 +34,7 @@
 #' @importFrom DBI dbConnect dbDisconnect dbGetQuery
 #' @importFrom RSQLite SQLite
 #' @importFrom dplyr mutate case_when na_if
+#' @importFrom magrittr %>%
 #' @param data Your data containing at least InChIKey
 #' @param toxtree_result Path to the Toxtree result CSV (default:
 #'   "toxtree_results.csv"). Cramer classification is optional: if the file

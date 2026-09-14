@@ -23,6 +23,7 @@ Imports:
     dplyr,
     httr,
     jsonlite,
+    magrittr,
     openxlsx,
     rio,
     RSQLite,

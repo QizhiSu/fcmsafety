@@ -1393,10 +1393,10 @@ fcm_app_server <- function(input, output, session) {
       lv <- if ("Toxic_level" %in% names(res)) res$Toxic_level else rep("-", nrow(res))
       lv <- ifelse(is.na(lv) | lv == "", "-", lv)
       dist <- as.data.frame(table(`Toxic_level` = factor(lv, levels = c("V", "IV", "III", "II", "I", "-"))),
-                            responseName = "行数")
+                            responseName = "Rows")
       hit_cols <- intersect(c("SVHC", "CMR", "CMR_suspect", "EDC", "IARC"), names(res))
       hits <- do.call(rbind, lapply(hit_cols, function(cc) {
-        data.frame(清单 = cc, 命中行数 = sum(res[[cc]] == "Y", na.rm = TRUE))
+        data.frame(List = cc, Hits = sum(res[[cc]] == "Y", na.rm = TRUE))
       }))
       output$screen_dist_table <- shiny::renderTable(dist, striped = TRUE, hover = TRUE,
                                                      bordered = TRUE, na = "", width = "100%")
