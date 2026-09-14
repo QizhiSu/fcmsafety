@@ -262,7 +262,6 @@ test_that("assign_toxicity 端到端产出 Toxic_level 与依据", {
   # ExactMass 三个 relocate 锚点，所以不会被搬动，直接追加在末尾。
   block <- c("Cramer_rules", "SVHC", "CMR", "CMR_H_codes", "CMR_suspect",
              "EDC", "IARC", "EU_SML", "China_SML",
-             "Group_hits", "Group_IARC", "Group_review",
              "Toxic_level", "Toxic_level_basis")
   expect_identical(names(res)[seq_along(block) + 3L], block)
 
@@ -291,10 +290,9 @@ test_that("有 relocate 锚点时整块毒性列被搬走，等级两列跟着�
 
   block <- c("Cramer_rules", "SVHC", "CMR", "CMR_H_codes", "CMR_suspect",
              "EDC", "IARC", "EU_SML", "China_SML",
-             "Group_hits", "Group_IARC", "Group_review",
              "Toxic_level", "Toxic_level_basis")
-  expect_identical(names(res)[4:17], block)      # 紧跟 ExactMass
-  expect_identical(names(res)[18], "extra")      # 被挤到后面
+  expect_identical(names(res)[4:14], block)      # 紧跟 ExactMass
+  expect_identical(names(res)[15], "extra")      # 被挤到后面
   expect_identical(res$Toxic_level, "V")
   unlink(db_path)
 })

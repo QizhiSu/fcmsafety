@@ -629,11 +629,7 @@ Chemical Pollution (IPCP) commissioned by UN Environment (<a href="https://www.u
 <p>Every row of the output carries a <code>Toxic_level</code> (I–V,
 strictest evidence wins) plus a <code>Toxic_level_basis</code> column
 that states <em>why</em> the level was assigned. An empty level
-(<code>-</code>) means “no evidence found” — it never means “safe”.
-Group entries (e.g. IARC group entries such as <em>Aflatoxins</em>, lead
-and its compounds) are covered by a group-entry registry; pass
-<code>group_membership = TRUE</code> to include group-level
-judgment.</p>
+(<code>-</code>) means “no evidence found” — it never means “safe”.</p>
 <p>All regulatory tables live in one SQLite file
 (<code>inst/fcmsafety.db</code>) that ships with the package, so
 screening works fully offline.</p>
@@ -697,13 +693,6 @@ also works — the data frame is plain data.</p>
 with a two-phase preview-then-write flow, and run the full screening
 workflow (upload a substance list, preview level distribution, download
 the report).</p>
-<h1 id="note-on-group-entries">Note on group entries</h1>
-<p>Group entries (nonylphenols, lead compounds, …) are visible to the
-package through an explicit registry.
-<code>assign_toxicity(group_membership = TRUE)</code> additionally
-reports group hits per row; grading from group evidence is deliberately
-conservative and flags conservative cases for manual review instead of
-guessing.</p>
 
 </body>
 </html>

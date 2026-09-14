@@ -1,5 +1,16 @@
 # fcmsafety 0.1.6 (unreleased)
 
+## Remove the group-entry matching subsystem
+- group_membership.R (1,621 lines: element judges, UVCB matching, the
+  screen_* engine and its registry) is deleted, along with
+  assign_group_membership() / assign_group_membership_table() exports and
+  the group_membership / Group_hits / Group_IARC / Group_review surface of
+  assign_toxicity(). The subsystem was default-off and not part of the
+  owner's core flow. The IARC (see X) alias resolution that
+  assign_toxicity() uses unconditionally is kept in iarc_see_aliases.R.
+  ADRs 0009/0010 kept as historical records; the engine lives on the
+  wip/consolidation-draft branch and in git history.
+
 ## PubChem metadata extraction returns to labtools; run_screening removed
 - prepare_input() (offline CDK InChIKey derivation, ~700 lines plus the
   rcdk/rJava-only identity machinery) and run_screening() are removed per

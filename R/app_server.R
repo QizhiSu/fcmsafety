@@ -1360,7 +1360,6 @@ fcm_app_server <- function(input, output, session) {
           "SMILES 列可选：有则自动调 Toxtree 做 Cramer 分级",
           "（首次需下载约 81MB、需要 Java；失败时降级为仅法规匹配，Cramer 列留空）。</p>")),
         shiny::checkboxInput("screen_online", "本地推导失败的行联网查 PubChem 兜底（较慢）", FALSE),
-        shiny::checkboxInput("screen_group", "额外做组条目归属判定（较慢，默认关）", FALSE),
         footer = shiny::tagList(
           shiny::modalButton("取消"),
           actionButton("db_confirm_screen", "开始筛查", class = "btn-primary")
@@ -1375,13 +1374,12 @@ fcm_app_server <- function(input, output, session) {
         showNotification("请先选择物质清单文件（xlsx / csv）。", type = "error")
         return()
       }
-      with_group <- isTRUE(input$screen_group)
       res <- run_quick_task(function() {
         df <- rio::import(uploaded)
         if (!is.data.frame(df) || nrow(df) == 0) {
           stop("文件里没有可读的数据行")
         }
-        assign_toxicity(df, group_membership = with_group)
+        assign_toxicity(df)
       }, "物质筛查")
       if (is.null(res)) return()   # 出错信息已在日志里给出
       values$screen_result <- res

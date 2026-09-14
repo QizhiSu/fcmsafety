@@ -7,9 +7,6 @@
 #   2) 把多行命中的结果按"取最严"收成一行（summarise_*() 系列）
 #   3) 按规则表 inst/toxicity_levels.png 算出 Toxic_level（I–V）与依据
 #      （compute_toxicity_levels()，纯函数，无 IO）
-#   4) 可选：跑组条目筛查（Group_hits / Group_IARC / Group_review），
-#      并把够可信的 IARC 组命中喂进定级
-#
 # 设计取向（2026-09-10 定案，见 docs/adr/0007、0008）：
 #   - "查不到"不等于"安全"。全无证据的行 Toxic_level 留空 "-"，不冒充 I 级。
 #     I 级唯一来源是 1.8 < SML <= 60，所以留空只表示"什么都没找到"。
@@ -17,8 +14,6 @@
 #     attr(x, "query_error") 上，由 assign_toxicity() 收成 query_issues
 #     并写进 Issues 表；否则一张表查挂了、结果看起来只是"少匹配到一些"，
 #     比报错更危险。
-#   - group_membership 默认 FALSE。精确 InChIKey 匹配看不见"一大类"条目，
-#     但开启后结果会变，为不惊动既有脚本默认关。
 # =============================================================================
 
 #' Direct SQL-Based Toxicity Assignment
@@ -54,16 +49,7 @@
 #'   Issues sheets); a `.csv` path produces the old flat file.
 #' @param db_path Path to an alternative SQLite database (default: NULL =
 #'   package default database). Intended for tests and custom deployments.
-#' @param group_membership Logical, whether to also look up group-level entries
-#'   (default: FALSE). Exact InChIKey matching cannot see entries that describe
-#'   a family rather than a structure — "Cadmium and cadmium compounds",
-#'   "Chlorinated paraffins", "Nonylphenol and its ethoxylates". With
-#'   \code{TRUE}, \code{\link{assign_group_membership_table}()} runs over the
-#'   same input and its hits are reported in \code{Group_hits} /
-#'   \code{Group_IARC} / \code{Group_review}; IARC group hits that are confident
-#'   enough also feed the toxicity tier. Off by default so the numbers produced
-#'   by exact matching do not change under existing scripts — see
-#'   \code{docs/adr/0008-20260910-report-export-and-failure-visibility.md} for
+##'   \code{docs/adr/0008-20260910-report-export-and-failure-visibility.md} for
 #'   the measured impact.
 #' @return A data.frame or tibble with toxicity assigned (same as original function).
 #'   Besides the existing regulatory flags (SVHC / CMR / CMR_suspect / EDC / IARC /
@@ -85,8 +71,7 @@
 #' @encoding UTF-8
 assign_toxicity <- function(data, toxtree_result = "toxtree_results.csv",
                            check_updates = FALSE, auto_update = FALSE, show_update_details = TRUE,
-                           output_file = NULL, db_path = NULL,
-                           group_membership = FALSE) {
+                           output_file = NULL, db_path = NULL) {
 
   message("🧪 FCMSafety Toxicity Assignment with Direct SQL Queries")
   message(paste(rep("=", 60), collapse = ""))
@@ -323,45 +308,6 @@ assign_toxicity <- function(data, toxtree_result = "toxtree_results.csv",
     cmr_data$hazard_statement_codes[match(data$InChIKey, cmr_data$InChIKey)]
   )
 
-  # 组级条目（group_membership = TRUE 时）：精确 InChIKey 匹配看不见"镉及镉化合物"
-  # "氯化石蜡"这类族条目。IARC 的组条目带分组，可以参与定级；CMR / SVHC 的 UVCB
-  # 命中本身不带危险码，只作记录，不擅自升级——升级会引入无法核实的误报。
-  group_hits_col <- rep(NA_character_, nrow(data))
-  group_iarc_col <- rep(NA_character_, nrow(data))
-  group_review_col <- rep(NA_character_, nrow(data))
-  if (isTRUE(group_membership)) {
-    message("\n🧩 Looking up group-level entries...")
-    grp_hits <- tryCatch(
-      assign_group_membership_table(data, source = "all", db_path = db_path),
-      error = function(e) {
-        note_issue("group_membership", "failed", NA_integer_, conditionMessage(e))
-        message("Warning: group membership lookup failed: ", conditionMessage(e))
-        NULL
-      }
-    )
-    if (!is.null(grp_hits)) {
-      grp <- summarise_group_hits(grp_hits)
-      idx <- match(seq_len(nrow(data)), grp$input_index)
-      group_hits_col <- grp$Group_hits[idx]
-      group_iarc_col <- grp$Group_IARC[idx]
-      group_review_col <- grp$Group_review[idx]
-      message("   group entries matched: ", sum(!is.na(group_hits_col)), " row(s); ",
-              sum(!is.na(group_iarc_col)), " with an IARC group")
-      n_review <- sum(!is.na(group_review_col))
-      if (n_review > 0) {
-        note_issue("group_membership", "warn", n_review,
-                   paste0(n_review, " row(s) matched a group entry at confidence ",
-                          "'manual_review'; recorded in Group_review, not used for grading."))
-      }
-      grp_errs <- attr(grp_hits, "errors")
-      if (!is.null(grp_errs) && nrow(grp_errs) > 0) {
-        note_issue("group_membership", "warn", nrow(grp_errs),
-                   paste0(nrow(grp_errs),
-                          " row(s) could not be resolved to an identity for group lookup."))
-      }
-    }
-  }
-
   # 毒性等级 I–V（规则表 inst/toxicity_levels.png），多条件命中取最严。
   # 什么都没命中的行留空，不冒充 I 级——见 compute_toxicity_levels()。
   tox_levels <- compute_toxicity_levels(
@@ -373,7 +319,7 @@ assign_toxicity <- function(data, toxtree_result = "toxtree_results.csv",
     sml_eu = eu_sml_num,
     sml_cn = china_sml_num,
     cramer_rules = cramer_vals,
-    iarc_extra = group_iarc_col
+    iarc_extra = rep(NA_character_, nrow(data))  # 组条目引擎已删；如恢复，接回组命中列
   )
 
   result_data <- data %>%
@@ -390,10 +336,6 @@ assign_toxicity <- function(data, toxtree_result = "toxtree_results.csv",
       IARC = dplyr::na_if(iarc_group, "3"),
       EU_SML = eu_sml_num,
       China_SML = china_sml_num,
-      # 组级条目命中（group_membership = TRUE 时才有内容）
-      Group_hits = group_hits_col,
-      Group_IARC = group_iarc_col,
-      Group_review = group_review_col,
       # 等级与依据放最后：前面是证据，这两列是结论。
       Toxic_level = tox_levels$Toxic_level,
       Toxic_level_basis = tox_levels$Toxic_level_basis
@@ -432,8 +374,6 @@ assign_toxicity <- function(data, toxtree_result = "toxtree_results.csv",
   iarc_count <- sum(result_data$IARC != "-", na.rm = TRUE)
   eu_sml_count <- sum(result_data$EU_SML != "-", na.rm = TRUE)
   china_sml_count <- sum(result_data$China_SML != "-", na.rm = TRUE)
-  group_hit_count <- sum(result_data$Group_hits != "-", na.rm = TRUE)
-  group_review_count <- sum(result_data$Group_review != "-", na.rm = TRUE)
   # CMR 定级证据：V 类码 -> 等级 V，IV 类码 -> 等级 IV
   cmr_v_count <- sum(grepl("H340|H350|H360", result_data$CMR_H_codes), na.rm = TRUE)
   cmr_iv_count <- sum(grepl("H341|H351|H361", result_data$CMR_H_codes), na.rm = TRUE)
@@ -458,10 +398,6 @@ assign_toxicity <- function(data, toxtree_result = "toxtree_results.csv",
   message("   IARC matches: ", iarc_count)
   message("   EU SML matches: ", eu_sml_count)
   message("   China SML matches: ", china_sml_count)
-  if (isTRUE(group_membership)) {
-    message("   Group entries matched: ", group_hit_count,
-            " (of which ", group_review_count, " need manual review)")
-  }
 
   message("\n🎯 Toxicity level (I–V):")
   for (t in names(tier_counts)) {
@@ -1129,92 +1065,4 @@ summarise_china_sml <- function(china_sml_data) {
   })
 
   do.call(rbind, rows)
-}
-
-# ---- 组级条目命中 → 与结果表对齐 --------------------------------------------
-
-# 只有这两档置信度参与定级。"manual_review" 是函数自己标出来的"需人工确认"
-# （价态/形态启发式未命中、场景层不可结构判定、含有机骨架又命中金属等），
-# 拿它去定级等于把猜测写进结论。
-.group_grade_confidences <- c("auto_confirmed", "probable")
-
-#' 把组条目命中汇总到输入行
-#'
-#' [assign_group_membership_table()] 返回的是长表：一行输入可能命中多个条目，
-#' 一行输入也可能一个都不命中。这里按 `input_index` 收成一行，供
-#' [assign_toxicity()] 左对齐到结果表。
-#'
-#' 只有 IARC 的组条目带分组，所以只有它会返回可参与定级的 `Group_IARC`；
-#' CMR / SVHC 的 UVCB 命中（如"氯化石蜡"）本身不带危险码，只记进 `Group_hits`。
-#' 置信度为 `manual_review` 的命中一律进 `Group_review`，不参与定级。
-#'
-#' @param hits [assign_group_membership_table()] 的结果
-#' @return data.frame(input_index, Group_hits, Group_IARC, Group_review)，
-#'   每个出现过的 input_index 一行
-#' @keywords internal
-#' @export
-#' @encoding UTF-8
-summarise_group_hits <- function(hits) {
-  empty <- data.frame(input_index = integer(0), Group_hits = character(0),
-                      Group_IARC = character(0), Group_review = character(0),
-                      stringsAsFactors = FALSE)
-  if (is.null(hits) || nrow(hits) == 0) return(empty)
-  if (!all(c("input_index", "source_db", "confidence") %in% names(hits))) {
-    return(empty)
-  }
-
-  idx <- unique(hits$input_index)
-  idx <- idx[!is.na(idx)]
-  if (!length(idx)) return(empty)
-
-  # 条目名优先用 matched_entry，缺了退回 name
-  entry <- as.character(hits$matched_entry)
-  fallback <- as.character(hits$name)
-  entry[is.na(entry) | !nzchar(entry)] <- fallback[is.na(entry) | !nzchar(entry)]
-  label <- paste0(as.character(hits$source_db), ": ", entry)
-  label[is.na(entry) | !nzchar(entry)] <- NA_character_
-  conf <- as.character(hits$confidence)
-  graded <- !is.na(conf) & conf %in% .group_grade_confidences
-
-  rows <- lapply(idx, function(i) {
-    sel <- hits$input_index == i
-    txt <- unique(label[sel])
-    txt <- txt[!is.na(txt) & nzchar(txt)]
-    review <- unique(label[sel & !graded])
-    review <- review[!is.na(review) & nzchar(review)]
-
-    # IARC 组：复用精确匹配那套"取最严分组"的逻辑，避免两处算法漂移
-    grp <- NA_character_
-    sel_iarc <- sel & graded & as.character(hits$source_db) == "iarc"
-    if (any(sel_iarc)) {
-      one <- summarise_iarc_groups(data.frame(
-        InChIKey = "input",
-        group_classification = as.character(hits$iarc_group[sel_iarc]),
-        stringsAsFactors = FALSE))
-      if (nrow(one) == 1 && !is.na(one$group_classification[1])) {
-        grp <- one$group_classification[1]
-      }
-    }
-
-    data.frame(
-      input_index = as.integer(i),
-      Group_hits = if (length(txt)) .paste_capped(txt) else NA_character_,
-      Group_IARC = grp,
-      Group_review = if (length(review)) .paste_capped(review) else NA_character_,
-      stringsAsFactors = FALSE
-    )
-  })
-
-  out <- do.call(rbind, rows)
-  row.names(out) <- NULL
-  out
-}
-
-# 拼接命中条目文本，超过 3 条只列前 3 条并标出剩余数量——整列塞满十几个条目名
-# 会让表格没法看，而完整清单在 Group_hits 的原始长表里随时可查。
-.paste_capped <- function(x, n = 3L) {
-  x <- unique(x)
-  if (length(x) <= n) return(paste(x, collapse = "; "))
-  paste0(paste(x[seq_len(n)], collapse = "; "),
-         " (+", length(x) - n, " more)")
 }

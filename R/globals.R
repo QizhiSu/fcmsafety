@@ -23,7 +23,6 @@ utils::globalVariables(c(
   "IsomericSMILES", "NAME", "CAS", "SMILES",
   "Flavornet", "CAS_retrieved", "ExactMass", "Cramer_rules",
   "Toxic_level", "Toxic_level_basis",
-  "Group_hits", "Group_IARC", "Group_review",
   "SML", "SML_group",
   "SML\r\n                     [mg/kg]",
   "SML (T)\r\n                     [mg/kg]",

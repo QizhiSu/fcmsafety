@@ -34,10 +34,7 @@ each substance. It takes into account the toxicity data from:
 Every row of the output carries a `Toxic_level` (I–V, strictest evidence
 wins) plus a `Toxic_level_basis` column that states *why* the level was
 assigned. An empty level (`-`) means “no evidence found” — it never
-means “safe”. Group entries (e.g. IARC group entries such as
-*Aflatoxins*, lead and its compounds) are covered by a group-entry
-registry; pass `group_membership = TRUE` to include group-level
-judgment.
+means “safe”.
 
 All regulatory tables live in one SQLite file (`inst/fcmsafety.db`) that
 ships with the package, so screening works fully offline.
@@ -133,11 +130,3 @@ A Shiny app to browse every regulatory table, run the online update with
 a two-phase preview-then-write flow, and run the full screening workflow
 (upload a substance list, preview level distribution, download the
 report).
-
-# Note on group entries
-
-Group entries (nonylphenols, lead compounds, …) are visible to the
-package through an explicit registry.
-`assign_toxicity(group_membership = TRUE)` additionally reports group
-hits per row; grading from group evidence is deliberately conservative
-and flags conservative cases for manual review instead of guessing.

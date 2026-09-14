@@ -12,8 +12,7 @@ assign_toxicity(
   auto_update = FALSE,
   show_update_details = TRUE,
   output_file = NULL,
-  db_path = NULL,
-  group_membership = FALSE
+  db_path = NULL
 )
 }
 \arguments{
@@ -41,17 +40,7 @@ A \code{.xlsx} path produces a styled workbook via
 Issues sheets); a \code{.csv} path produces the old flat file.}
 
 \item{db_path}{Path to an alternative SQLite database (default: NULL =
-package default database). Intended for tests and custom deployments.}
-
-\item{group_membership}{Logical, whether to also look up group-level entries
-(default: FALSE). Exact InChIKey matching cannot see entries that describe
-a family rather than a structure — "Cadmium and cadmium compounds",
-"Chlorinated paraffins", "Nonylphenol and its ethoxylates". With
-\code{TRUE}, \code{\link{assign_group_membership_table}()} runs over the
-same input and its hits are reported in \code{Group_hits} /
-\code{Group_IARC} / \code{Group_review}; IARC group hits that are confident
-enough also feed the toxicity tier. Off by default so the numbers produced
-by exact matching do not change under existing scripts — see
+package default database). Intended for tests and custom deployments.
 \code{docs/adr/0008-20260910-report-export-and-failure-visibility.md} for
 the measured impact.}
 }

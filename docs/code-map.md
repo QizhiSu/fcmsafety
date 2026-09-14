@@ -77,7 +77,6 @@ res <- assign_toxicity(data, output_file = "report.xlsx")
 | 文件 | 行数 | 职责 |
 |---|---:|---|
 | `toxtree.R` | ~810 | Toxtree：rJava 快速路径 + CLI 回退 + jar 按需下载 | 
-| `group_membership.R` | ~1620 | 组条目判定（IARC 类条目 / UVCB），默认关 | 
 
 ### GUI（三个文件）
 
@@ -116,7 +115,6 @@ res <- assign_toxicity(data, output_file = "report.xlsx")
 | 某官网抓不到了 | `download_sources.R` 对应函数 | 先读函数头注释（回退顺序在里面） |
 | Cramer 分级不对 | `toxtree.R` | **改完必须重装包** |
 | 查为什么某物质"查不到" | `direct_sql_toxicity.R` 的 `query_*_data()` + Issues 表 | 先看报告的 Issues sheet |
-| IARC 组条目判定太严/太松 | `group_membership.R` 的 `screen_iarc_groups()` | 两条护栏只作用于 element 层 |
 | Shiny 界面加个按钮 | UI 在 `app_ui.R`，逻辑在 `app_server.R` | 文案要同时进 i18n 文案表 |
 | 报告说"数据库连接失败" | `sqlite_database_manager.R` 的 `.resolve_db_path()` | **必须在项目根目录跑** |
 
@@ -131,7 +129,8 @@ res <- assign_toxicity(data, output_file = "report.xlsx")
    （I 级的唯一来源是 `1.8 < SML <= 60`）。
 3. **查询失败必须可见。** `query_*()` 出错时挂 `attr(x, "query_error")`，
    由上层收进 Issues 表。
-4. **`group_membership` 默认 FALSE。** 开启会改变既有结果，不能默默默认打开。
+4. **组条目判定引擎已移除（2026-09-15）**，IARC (see X) 别名解析保留在
+   `iarc_see_aliases.R`；判定引擎的历史版本在 wip/consolidation-draft 与 git 历史。
 5. **元素层只是必要条件。** 元素命中不等于归属确认，护栏必须保留。
 6. **新增 roxygen 块以 `#' @encoding UTF-8` 结尾，且必须在块尾**，
    护栏是 `tests/testthat/test-rd-docs.R`。
