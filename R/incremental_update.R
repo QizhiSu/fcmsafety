@@ -79,6 +79,7 @@ key_placeholder <- c("", "-", "\u2013", "\u2014", "\u2015", "n/a", "N/A", "NA")
 #' @param x 字符向量
 #' @return 逻辑向量
 #' @keywords internal
+#' @encoding UTF-8
 is_blank_key <- function(x) {
   is.na(x) | x %in% key_placeholder
 }
@@ -97,6 +98,7 @@ is_blank_key <- function(x) {
 #'   或 "\\r\\n" 分隔（分隔符由官方导出决定）
 #' @return 字符向量；无法规范化的元素返回 NA_character_
 #' @keywords internal
+#' @encoding UTF-8
 canonicalize_cas <- function(x) {
   if (is.null(x)) return(NULL)
   x <- as.character(x)
@@ -157,6 +159,7 @@ cas_number_pattern <- "\\b[0-9]{2,7}-[0-9]{2}-[0-9]\\b"
 #' @param x 字符向量，元素可为单个 CAS，也可为多值单元格
 #' @return list，长度同 `x`；每个元素是字符向量（可能为空）
 #' @keywords internal
+#' @encoding UTF-8
 extract_cas_candidates <- function(x) {
   if (is.null(x)) return(list())
   x <- as.character(x)
@@ -242,6 +245,7 @@ pubchem_get <- function(url, timeout = 30, retries = 3L, backoff = 1) {
 #' @return 命名 list，含 CID/Formula/SMILES/InChIKey/IUPACName/ExactMass，
 #'   并带 `lookup_status` 属性
 #' @keywords internal
+#' @encoding UTF-8
 pubchem_lookup_cas <- function(cas, timeout = 30, retries = 3L, backoff = 1) {
   empty <- list(
     CID = NA_character_, Formula = NA_character_,
@@ -335,6 +339,7 @@ pubchem_lookup_cas <- function(cas, timeout = 30, retries = 3L, backoff = 1) {
 #' @param max_cas_try 单行最多试几个候选 CAS
 #' @return 补全化学列后的 data.frame
 #' @keywords internal
+#' @encoding UTF-8
 enrich_new_compounds <- function(df, cas_col, name_col, delay = 0.35,
                                  verbose = TRUE, max_cas_try = 5) {
   if (is.null(df) || nrow(df) == 0) return(df)
@@ -435,6 +440,7 @@ enrich_new_compounds <- function(df, cas_col, name_col, delay = 0.35,
 #' @param db_path 自定义数据库路径（NULL 用默认）
 #' @return 回填后的 data.frame
 #' @keywords internal
+#' @encoding UTF-8
 backfill_meta_from_db <- function(df, db_name, cas_col, db_path = NULL) {
   if (is.null(df) || nrow(df) == 0) return(df)
 
@@ -492,6 +498,7 @@ backfill_meta_from_db <- function(df, db_name, cas_col, db_path = NULL) {
 #' @param v 字符向量
 #' @return 归一后的字符向量，空键为 NA_character_
 #' @keywords internal
+#' @encoding UTF-8
 canon_key <- function(v) {
   v <- as.character(v)
   v <- gsub("\r\r\n", "\n", v)
@@ -517,6 +524,7 @@ canon_key <- function(v) {
 #' @param fallback_col 兜底键列名（可为 NULL 或源/库表里不存在）
 #' @return 字符向量，无可用键的行返回 NA
 #' @keywords internal
+#' @encoding UTF-8
 key_of_df <- function(df, key_col, fallback_col = NULL) {
   k <- canon_key(df[[key_col]])
   if (!is.null(fallback_col) && fallback_col %in% names(df)) {
@@ -545,6 +553,7 @@ key_of_df <- function(df, key_col, fallback_col = NULL) {
 #'   不要再拷贝一份残缺实现（2026-09-12 架构评审第 3 轮）。
 #' @return 归一后的字符向量
 #' @keywords internal
+#' @encoding UTF-8
 canon_cell <- function(v, sort_multiline = TRUE) {
   v <- as.character(v)
   v[is.na(v)] <- ""
@@ -583,6 +592,7 @@ canon_cell <- function(v, sort_multiline = TRUE) {
 #'   0266309-43-7 与 266309-43-7 这类格式差异被误判为 modified
 #' @return list(added/removed/modified 及 total_*)
 #' @keywords internal
+#' @encoding UTF-8
 diff_incremental <- function(new_df, current_df, key_col,
                              fallback_col = NULL, content_cols = NULL,
                              cas_col = NULL) {
@@ -669,6 +679,7 @@ diff_incremental <- function(new_df, current_df, key_col,
 #' @param col 库表列名（蛇形）
 #' @return 命中的源列名，找不到 NA_character_
 #' @keywords internal
+#' @encoding UTF-8
 map_source_colname <- function(raw, db_name, col) {
   nms <- names(raw)
   if (col %in% nms) return(col)
@@ -704,6 +715,7 @@ map_source_colname <- function(raw, db_name, col) {
 #' @param db_path 自定义数据库路径
 #' @return 列名与库表一致的 data.frame
 #' @keywords internal
+#' @encoding UTF-8
 map_to_db_columns <- function(raw, db_name, db_path = NULL) {
   con <- get_db_connection(db_path)
   on.exit(DBI::dbDisconnect(con))
@@ -739,6 +751,7 @@ map_to_db_columns <- function(raw, db_name, db_path = NULL) {
 #' @param pattern 目标列名
 #' @return 源列名字符串或 NA_character_
 #' @keywords internal
+#' @encoding UTF-8
 first_matching_colname <- function(data, pattern) {
   if (!is.data.frame(data) || nrow(data) == 0) return(NA_character_)
   strip <- function(x) gsub("[[:space:]]+", "", x)
@@ -770,6 +783,7 @@ first_matching_colname <- function(data, pattern) {
 #' @param fallback_col 兜底键列名（可为 NULL）
 #' @return 回填后的 data.frame
 #' @keywords internal
+#' @encoding UTF-8
 backfill_unmapped_cols <- function(new_df, cur_df, key_col, fallback_col = NULL) {
   if (is.null(new_df) || nrow(new_df) == 0) return(new_df)
   if (is.null(cur_df) || nrow(cur_df) == 0) return(new_df)
@@ -840,6 +854,7 @@ backfill_unmapped_cols <- function(new_df, cur_df, key_col, fallback_col = NULL)
 #' @return `list(changes = , dropped = , n_dropped = )`；`changes$added` 已剔除
 #'   无键行，`total_added` 同步改写
 #' @keywords internal
+#' @encoding UTF-8
 split_unassignable <- function(changes, db_name, key_col, fallback_col = NULL,
                                cas_col = NULL, name_col = NULL,
                                looked_up = TRUE) {
@@ -916,6 +931,7 @@ split_unassignable <- function(changes, db_name, key_col, fallback_col = NULL,
 #' @param db_path 可选数据库路径
 #' @return 实际处理的条目数（整数，隐式返回）
 #' @keywords internal
+#' @encoding UTF-8
 record_unassigned <- function(db_name, dropped, db_path = NULL) {
   if (is.null(dropped) || nrow(dropped) == 0L) return(invisible(0L))
 
@@ -983,6 +999,7 @@ record_unassigned <- function(db_name, dropped, db_path = NULL) {
 #' @param db_path 可选数据库路径
 #' @return 被标成已解决的条目数（整数，隐式返回）
 #' @keywords internal
+#' @encoding UTF-8
 mark_unassigned_resolved <- function(db_name, keys, db_path = NULL) {
   keys <- as.character(keys)
   keys <- keys[!is_blank_key(keys)]
@@ -1066,6 +1083,7 @@ mark_unassigned_resolved <- function(db_name, keys, db_path = NULL) {
 #' @param db_path 可选数据库路径
 #' @return 实际处理的条目数（整数，隐式返回）
 #' @keywords internal
+#' @encoding UTF-8
 record_data_quality_flag <- function(db_name, entries, flag,
                                      severity = "high", source = NULL,
                                      db_path = NULL) {
@@ -1133,6 +1151,7 @@ record_data_quality_flag <- function(db_name, entries, flag,
 #' @param db_path 可选数据库路径
 #' @return 被标成已解决的条目数（整数，隐式返回）
 #' @keywords internal
+#' @encoding UTF-8
 resolve_data_quality_flag <- function(db_name, keys, flag = NULL, db_path = NULL) {
   keys <- as.character(keys)
   keys <- keys[!is_blank_key(keys)]
@@ -1176,6 +1195,7 @@ resolve_data_quality_flag <- function(db_name, keys, flag = NULL, db_path = NULL
 #' @param db_path 可选数据库路径
 #' @return 登记的条目数（整数，隐式返回）
 #' @keywords internal
+#' @encoding UTF-8
 flag_uvcb_structure_keys <- function(db_path = NULL) {
   con <- get_db_connection(db_path)
   on.exit(DBI::dbDisconnect(con), add = TRUE)
@@ -1227,6 +1247,7 @@ flag_uvcb_structure_keys <- function(db_path = NULL) {
 #' @param db_path 可选数据库路径
 #' @return 键的字符向量；账本不存在或无匹配时返回空向量
 #' @keywords internal
+#' @encoding UTF-8
 query_kept_removals <- function(db_name, db_path = NULL) {
   con <- get_db_connection(db_path)
   on.exit(DBI::dbDisconnect(con), add = TRUE)
@@ -1252,6 +1273,7 @@ query_kept_removals <- function(db_name, db_path = NULL) {
 #' @param fallback_col 主键为空时的兜底列（iarc 的组条目没有 CAS）
 #' @return 改写过 `removed` 与 `total_removed` 的 `changes` 列表
 #' @keywords internal
+#' @encoding UTF-8
 drop_kept_removals <- function(changes, kept, key_col, fallback_col = NULL) {
   if (length(kept) == 0L) return(changes)
   if (is.null(changes$removed) || nrow(changes$removed) == 0L) return(changes)
@@ -1269,6 +1291,7 @@ drop_kept_removals <- function(changes, kept, key_col, fallback_col = NULL) {
 #'
 #' @param db_file 数据库文件路径；NULL/空/不存在则静默跳过
 #' @keywords internal
+#' @encoding UTF-8
 backup_db_file <- function(db_file) {
   if (is.null(db_file) || !nzchar(db_file) || !file.exists(db_file)) {
     return(invisible(NULL))
@@ -1298,6 +1321,7 @@ backup_db_file <- function(db_file) {
 #' @param user_notes 记入 update_history 的备注
 #' @param ... 透传给 log_change_detail 的键风格参数
 #' @keywords internal
+#' @encoding UTF-8
 record_update_ledger <- function(con, db_name, changes, n_added, n_removed,
                                  n_modified, old_df = NULL, source_file,
                                  user_notes, ...) {
@@ -1336,6 +1360,7 @@ record_update_ledger <- function(con, db_name, changes, n_added, n_removed,
 #' @param backup 入库前是否备份数据库
 #' @return 写入统计
 #' @keywords internal
+#' @encoding UTF-8
 write_changes_to_db <- function(db_name, changes, key_col, fallback_col = NULL, db_path = NULL, backup = TRUE) {
   con <- get_db_connection(db_path)
   on.exit(DBI::dbDisconnect(con))
@@ -1425,6 +1450,7 @@ write_changes_to_db <- function(db_name, changes, key_col, fallback_col = NULL, 
 #' @param df 含化学列的 data.frame（可为 map 后/标准化后的新行）
 #' @return invisible(新增行数)
 #' @keywords internal
+#' @encoding UTF-8
 upsert_chemicals <- function(con, df) {
   if (is.null(df) || nrow(df) == 0) return(invisible(0L))
   if (!"InChIKey" %in% names(df)) return(invisible(0L))
@@ -1484,6 +1510,7 @@ upsert_chemicals <- function(con, df) {
 #' @param delay PubChem 请求间隔秒数
 #' @return list(success, changes, db_write)
 #' @keywords internal
+#' @encoding UTF-8
 run_incremental_update <- function(db_name, new_df, key_col, cas_col, name_col,
                                    fallback_col = NULL, content_cols = NULL,
                                    interactive = TRUE, auto_apply = FALSE,
@@ -1684,6 +1711,7 @@ row_keys <- function(df, key_fn = NULL, key_col = NULL, fallback_col = NULL) {
 #' @param exclude_cols 额外排除的列
 #' @return invisible(NULL)；成功时 message 汇总条数
 #' @keywords internal
+#' @encoding UTF-8
 log_change_detail <- function(con, history_id, db_name, changes, old_df = NULL,
                               key_fn = NULL, key_col = NULL, fallback_col = NULL,
                               compare_cols = NULL, exclude_cols = NULL) {

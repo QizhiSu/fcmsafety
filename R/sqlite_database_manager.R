@@ -192,6 +192,7 @@ split_sql_statements <- function(schema_sql) {
 #'   (invisibly)
 #' @keywords internal
 #' @export
+#' @encoding UTF-8
 ensure_schema_table <- function(table, db_path = NULL, schema_path = NULL) {
   if (!is.character(table) || length(table) != 1L || is.na(table) ||
       !nzchar(trimws(table))) {
@@ -291,6 +292,7 @@ ensure_schema_table <- function(table, db_path = NULL, schema_path = NULL) {
 #' @return Number of rows in the rebuilt table (integer, invisibly)
 #' @keywords internal
 #' @export
+#' @encoding UTF-8
 rebuild_table_from_schema <- function(table, db_path = NULL, schema_path = NULL) {
   if (!is.character(table) || length(table) != 1L || is.na(table) ||
       !nzchar(trimws(table))) {
@@ -437,6 +439,7 @@ rebuild_table_from_schema <- function(table, db_path = NULL, schema_path = NULL)
 #'   received a value on this run
 #' @keywords internal
 #' @export
+#' @encoding UTF-8
 migrate_cmr_suspect_index_no <- function(db_path = NULL, index_map = NULL,
                                          meta_file = NULL,
                                          meta_sheet = "cmr_suspect") {

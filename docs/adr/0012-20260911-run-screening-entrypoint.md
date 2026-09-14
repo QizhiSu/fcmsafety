@@ -1,4 +1,5 @@
 # 0012 - 新增 `run_screening()` 总控入口，以及它**刻意不暴露**的那两个参数
+> **Status: Superseded（2026-09-14）** — run_screening() 已于 2026-09-14 移除；入口回归 assign_toxicity()（数据先经 labtools 提取）。本文保留为历史记录。
 
 - 状态：已采纳
 - 日期：2026-09-11

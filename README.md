@@ -50,30 +50,25 @@ install.packages("remotes")
 remotes::install_github("QizhiSu/fcmsafety", ref = "fcmsafety-v2")
 ```
 
-# Quick start: one call
+# Quick start
 
-Your input needs at least a name column and a `SMILES` column. If it
-already contains an `InChIKey` column (e.g. produced by
-[***labtools***](https://github.com/QizhiSu/labtools)), it is used as-is
-and no structure derivation happens.
+Screening input must carry an `InChIKey` column. Extract it with
+[***labtools***](https://github.com/QizhiSu/labtools) (PubChem, online),
+then match and grade:
 
 ``` r
 library(fcmsafety)
+library(labtools)   # remotes::install_github("QizhiSu/labtools")
 
-substances <- data.frame(
-  NAME   = c("Bisphenol A", "Ethanol"),
-  SMILES = c("CC(C)(c1ccc(O)cc1)c1ccc(O)cc1", "CCO")
-)
+data <- rio::import("mydata.xlsx")
+data <- extract_meta(data)   # name/SMILES -> InChIKey, CID, formula (PubChem)
 
-res <- run_screening(substances, output_file = "screening.xlsx")
-print_prepare_report(res)   # which rows could not be resolved, and why
+res <- assign_toxicity(data, output_file = "report.xlsx")
 ```
 
-`run_screening()` derives missing structure identifiers offline (local
-CDK, no network), matches the regulatory databases, assigns the toxicity
-level, and writes a styled Excel report with four sheets (Results /
-Summary / Unassigned / Issues). Use `online = TRUE` to fall back to
-PubChem for rows that cannot be resolved locally.
+`assign_toxicity()` matches the regulatory databases, assigns the
+toxicity level, and writes a styled Excel report with four sheets
+(Results / Summary / Unassigned / Issues).
 
 # Update the regulatory databases
 
@@ -99,14 +94,11 @@ online source and is updated by dropping a file into `inst/` — see
 
 # Step by step
 
-`run_screening()` is a thin wrapper around two steps that you can also
-call directly.
-
-## 1. Prepare the input (only if InChIKey is missing)
+## 1. Prepare the input
 
 ``` r
-prepared <- prepare_input(data)   # name + SMILES -> InChIKey/CID/Formula (offline CDK)
-print_prepare_report(prepared)
+library(labtools)
+data <- extract_meta(data)   # name/SMILES -> InChIKey/CID/Formula (PubChem, online)
 ```
 
 Skip this step when your data already carries an `InChIKey` column.

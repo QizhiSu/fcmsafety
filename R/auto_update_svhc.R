@@ -79,6 +79,7 @@ svhc_key_of <- function(df) {
 #' @return 字符向量，格式 dd/mm/yyyy
 #' @keywords internal
 #' @export
+#' @encoding UTF-8
 normalize_svhc_date <- function(x) {
   fmt <- function(d) sprintf("%02d/%02d/%04d",
                              as.integer(format(d, "%d", tz = "UTC")),
@@ -109,6 +110,7 @@ normalize_svhc_date <- function(x) {
 #' @return 标准化后的 data.frame
 #' @keywords internal
 #' @export
+#' @encoding UTF-8
 normalize_svhc_df <- function(df) {
   if (is.null(df) || nrow(df) == 0) return(NULL)
   message("   Detected source columns: ", paste(names(df), collapse = " | "))
@@ -200,6 +202,7 @@ normalize_svhc_df <- function(df) {
 #' @return 补全后的 data.frame
 #' @keywords internal
 #' @export
+#' @encoding UTF-8
 enrich_svhc_meta <- function(df, db_path = NULL, delay = 0.35, verbose = TRUE) {
   if (is.null(df) || nrow(df) == 0) return(df)
   # 1) 先从库回填老物质（未变动的物质零请求）
@@ -221,6 +224,7 @@ enrich_svhc_meta <- function(df, db_path = NULL, delay = 0.35, verbose = TRUE) {
 #' @return 标准化后的 data.frame，或 NULL
 #' @keywords internal
 #' @export
+#' @encoding UTF-8
 read_svhc_source_file <- function(path) {
   raw <- NULL
   if (grepl("\\.csv$", path)) {
@@ -252,6 +256,7 @@ read_svhc_source_file <- function(path) {
 #' @return 标准化后的 data.frame
 #' @keywords internal
 #' @export
+#' @encoding UTF-8
 fetch_svhc_local <- function(inst_dir = file.path(getwd(), "inst")) {
   # candidate_list / svhc_new 是 ECHA 导出的候选清单；svhc_meta 是库内全量备份。
   # ECHA 导出可能因 WAF/分页被截断成不完整文件，因此这里读取所有候选文件，
@@ -294,6 +299,7 @@ fetch_svhc_local <- function(inst_dir = file.path(getwd(), "inst")) {
 #' @return 标准化后的 data.frame（蛇形列 + 化学列）
 #' @keywords internal
 #' @export
+#' @encoding UTF-8
 fetch_svhc_data <- function(source = c("auto", "local", "echa"),
                             inst_dir = file.path(getwd(), "inst"),
                             new_file = NULL) {
@@ -352,6 +358,7 @@ fetch_svhc_data <- function(source = c("auto", "local", "echa"),
 #' @return list(added, removed, modified, total_added, total_removed, total_modified)
 #' @keywords internal
 #' @export
+#' @encoding UTF-8
 diff_svhc_data <- function(new_df, db_path = NULL) {
   con <- get_db_connection(db_path)
   on.exit(DBI::dbDisconnect(con))
@@ -445,6 +452,7 @@ diff_svhc_data <- function(new_df, db_path = NULL) {
 #' @return 写入统计
 #' @keywords internal
 #' @export
+#' @encoding UTF-8
 write_svhc_to_db <- function(new_df, changes, db_path = NULL, backup = TRUE) {
   con <- get_db_connection(db_path)
   on.exit(DBI::dbDisconnect(con))
@@ -558,6 +566,7 @@ write_svhc_to_db <- function(new_df, changes, db_path = NULL, backup = TRUE) {
 #' @return list(success, changes, db_write)
 #' @export
 #' @export
+#' @encoding UTF-8
 update_svhc_auto <- function(source = c("auto", "local", "echa"),
                              interactive = TRUE,
                              auto_apply = FALSE,

@@ -1,5 +1,20 @@
 # fcmsafety 0.1.6 (unreleased)
 
+## PubChem metadata extraction returns to labtools; run_screening removed
+- prepare_input() (offline CDK InChIKey derivation, ~700 lines plus the
+  rcdk/rJava-only identity machinery) and run_screening() are removed per
+  owner decision. The documented input path is now:
+  labtools::extract_meta(data) -> assign_toxicity(data). labtools moves to
+  Suggests with Remotes: QizhiSu/labtools; the GUI screening panel now
+  uploads files that already carry InChIKey and calls assign_toxicity
+  directly. ADRs 0004/0012 marked Superseded.
+- All man/ pages regenerated from roxygen source; every block now carries
+  @encoding UTF-8 in source (the reorganize commit had patched the .Rd
+  files directly, which roxygenise overwrote). test-rd-docs guard: 0
+  failures across 136 pages.
+
+## Split the Shiny monolith into ui / server / launcher
+
 ## Split the Shiny monolith into ui / server / launcher
 - `database_inspector_app.R` (3191 lines, the whole app inside one
   function) is now three files: `app_ui.R` (`fcm_app_ui()`, static UI

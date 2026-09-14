@@ -82,6 +82,7 @@
 #'   most severe group (1 &gt; 2A &gt; 2B &gt; 3).
 #' @export
 #' @export
+#' @encoding UTF-8
 assign_toxicity <- function(data, toxtree_result = "toxtree_results.csv",
                            check_updates = FALSE, auto_update = FALSE, show_update_details = TRUE,
                            output_file = NULL, db_path = NULL,
@@ -572,6 +573,7 @@ assign_toxicity <- function(data, toxtree_result = "toxtree_results.csv",
 #' @return x，附带 `query_error` 属性
 #' @keywords internal
 #' @export
+#' @encoding UTF-8
 .attach_query_error <- function(x, message) {
   attr(x, "query_error") <- message
   x
@@ -748,6 +750,7 @@ query_china_sml_data <- function(con, inchikey_list) {
 #'   无命中（含 NA、空串、只有非 CMR 码）返回 NA_character_
 #' @keywords internal
 #' @export
+#' @encoding UTF-8
 extract_cmr_h_codes <- function(x, codes = .cmr_h_codes) {
   x <- as.character(x)
   vapply(x, function(one) {
@@ -773,6 +776,7 @@ extract_cmr_h_codes <- function(x, codes = .cmr_h_codes) {
 #'   表不存在或查询失败时返回 0 行（调用方据此退化为全部 NA，不中断流程）
 #' @keywords internal
 #' @export
+#' @encoding UTF-8
 query_cmr_data <- function(con, inchikey_list) {
   query <- paste0("SELECT InChIKey, hazard_statement_codes FROM cmr ",
                   "WHERE InChIKey IN (", inchikey_list, ")")
@@ -827,6 +831,7 @@ query_cmr_data <- function(con, inchikey_list) {
 #' @return 与 x 等长的整数；未知或缺失返回 99L
 #' @keywords internal
 #' @export
+#' @encoding UTF-8
 .iarc_rank <- function(x) {
   r <- unname(.iarc_severity_rank[toupper(trimws(as.character(x)))])
   r[is.na(r)] <- 99L
@@ -842,6 +847,7 @@ query_cmr_data <- function(con, inchikey_list) {
 #' @return 与 x 等长的 "I"/"II"/"III"；无法识别返回 NA_character_
 #' @keywords internal
 #' @export
+#' @encoding UTF-8
 parse_cramer_class <- function(x) {
   x <- trimws(as.character(x))
   out <- rep(NA_character_, length(x))
@@ -861,6 +867,7 @@ parse_cramer_class <- function(x) {
 #'   48，该分支取不到，写在这里只是不留未定义行为。
 #' @keywords internal
 #' @export
+#' @encoding UTF-8
 toxicity_tier_from_sml <- function(sml) {
   vapply(sml, function(s) {
     if (is.na(s)) return(NA_character_)
@@ -878,6 +885,7 @@ toxicity_tier_from_sml <- function(sml) {
 #' @return list(value = 数值, source = "EU" / "China" / "EU+China" / NA)
 #' @keywords internal
 #' @export
+#' @encoding UTF-8
 strictest_sml <- function(eu, cn) {
   cand <- c(eu, cn)
   src <- c("EU", "China")
@@ -908,6 +916,7 @@ strictest_sml <- function(eu, cn) {
 #' @return data.frame(Toxic_level, Toxic_level_basis)，与输入等长
 #' @keywords internal
 #' @export
+#' @encoding UTF-8
 compute_toxicity_levels <- function(svhc, cmr_h_codes, cmr_suspect, edc, iarc,
                                     sml_eu, sml_cn, cramer_rules,
                                     iarc_extra = NULL) {
@@ -994,6 +1003,7 @@ compute_toxicity_levels <- function(svhc, cmr_h_codes, cmr_suspect, edc, iarc,
 #' @return data.frame(InChIKey, group_classification)，每个 InChIKey 一行
 #' @keywords internal
 #' @export
+#' @encoding UTF-8
 summarise_iarc_groups <- function(iarc_data) {
   empty <- data.frame(InChIKey = character(0),
                       group_classification = character(0),
@@ -1026,6 +1036,7 @@ summarise_iarc_groups <- function(iarc_data) {
 #' @return 与 x 等长的 list，每项是组号字符向量（可能为空）
 #' @keywords internal
 #' @export
+#' @encoding UTF-8
 extract_group_nos <- function(x) {
   x <- as.character(x)
   lapply(x, function(one) {
@@ -1047,6 +1058,7 @@ extract_group_nos <- function(x) {
 #'   `from_group` 表示胜出的值是否来自组限值（用于打 `*`）
 #' @keywords internal
 #' @export
+#' @encoding UTF-8
 summarise_eu_sml <- function(eu_sml_data, eu_sml_group_all) {
   empty <- data.frame(InChIKey = character(0), sml = numeric(0),
                       from_group = logical(0), groups = character(0),
@@ -1097,6 +1109,7 @@ summarise_eu_sml <- function(eu_sml_data, eu_sml_group_all) {
 #' @return data.frame(InChIKey, sml)
 #' @keywords internal
 #' @export
+#' @encoding UTF-8
 summarise_china_sml <- function(china_sml_data) {
   empty <- data.frame(InChIKey = character(0), sml = numeric(0),
                       stringsAsFactors = FALSE)
@@ -1140,6 +1153,7 @@ summarise_china_sml <- function(china_sml_data) {
 #'   每个出现过的 input_index 一行
 #' @keywords internal
 #' @export
+#' @encoding UTF-8
 summarise_group_hits <- function(hits) {
   empty <- data.frame(input_index = integer(0), Group_hits = character(0),
                       Group_IARC = character(0), Group_review = character(0),

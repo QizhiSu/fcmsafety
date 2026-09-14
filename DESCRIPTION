@@ -26,15 +26,18 @@ Imports:
     jsonlite,
     magrittr,
     openxlsx,
-    rJava,
     rio,
     RSQLite,
     rvest,
     shiny,
     stringr
 Suggests:
+    labtools,
     rcdk,
+    rJava,
     testthat
 URL: https://github.com/QizhiSu/fcmsafety
 BugReports: https://github.com/QizhiSu/fcmsafety/issues
+Remotes:
+    QizhiSu/labtools
 Config/roxygen2/version: 8.1.0

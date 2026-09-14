@@ -1,4 +1,5 @@
 # 输入准备：只要求"名称 + SMILES"，结构标识全本地推导
+> **Status: Superseded（2026-09-14）** — prepare_input()/run_screening() 已于 2026-09-14 移除，元数据提取回归 labtools::extract_meta()。本文保留为历史记录。
 
 ## 背景
 

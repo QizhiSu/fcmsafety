@@ -35,6 +35,7 @@
 #' @return data.frame
 #' @keywords internal
 #' @export
+#' @encoding UTF-8
 read_source_table <- function(path, sheet = NULL, expected_col = NULL,
                               two_row_header = FALSE) {
   if (grepl("\\.csv$", path, ignore.case = TRUE)) {
@@ -73,6 +74,7 @@ read_source_table <- function(path, sheet = NULL, expected_col = NULL,
 #' @return 单行表头的 data.frame
 #' @keywords internal
 #' @export
+#' @encoding UTF-8
 merge_clp_subheader <- function(df) {
   if (is.null(df) || nrow(df) == 0) return(df)
   if (!"Index No" %in% names(df)) return(df)
@@ -101,6 +103,7 @@ merge_clp_subheader <- function(df) {
 #' @return 重命名后的 data.frame
 #' @keywords internal
 #' @export
+#' @encoding UTF-8
 rename_source_cols <- function(df, mapping) {
   for (src in names(mapping)) {
     idx <- which(names(df) == src)
@@ -116,6 +119,7 @@ rename_source_cols <- function(df, mapping) {
 #' @return 清洗后的 data.frame
 #' @keywords internal
 #' @export
+#' @encoding UTF-8
 clean_key_cols <- function(df, cols) {
   for (col in cols) {
     if (col %in% names(df)) {
@@ -171,6 +175,7 @@ col_or_na <- function(df, cn, n) {
 #' @return list(pictogram =, signal_word_codes =)，无内容的元素为 NA
 #' @keywords internal
 #' @export
+#' @encoding UTF-8
 split_clp_label_cell <- function(x) {
   x <- as.character(x)
   pic <- rep(NA_character_, length(x))
@@ -199,6 +204,7 @@ split_clp_label_cell <- function(x) {
 #' @return list(specific_conc_limits =, m_factors =)，无内容的元素为 NA
 #' @keywords internal
 #' @export
+#' @encoding UTF-8
 split_clp_limit_cell <- function(x) {
   x <- as.character(x)
   scl <- rep(NA_character_, length(x))
@@ -230,6 +236,7 @@ split_clp_limit_cell <- function(x) {
 #' @return 加了两列的 data.frame；源里没有复合列时原样返回
 #' @keywords internal
 #' @export
+#' @encoding UTF-8
 derive_cmr_label_cols <- function(df) {
   if (is.null(df) || nrow(df) == 0) return(df)
   cn <- find_clp_label_col(names(df))
@@ -250,6 +257,7 @@ derive_cmr_label_cols <- function(df) {
 #' @return 修好的 data.frame；缺少这两列时原样返回
 #' @keywords internal
 #' @export
+#' @encoding UTF-8
 heal_cmr_split_cols <- function(df) {
   need <- c("specific_conc_limits", "m_factors")
   if (is.null(df) || nrow(df) == 0 || !all(need %in% names(df))) return(df)
@@ -272,6 +280,7 @@ heal_cmr_split_cols <- function(df) {
 #' @return 列名对齐后的 data.frame
 #' @keywords internal
 #' @export
+#' @encoding UTF-8
 normalize_cmr_df <- function(df) {
   if (is.null(df) || nrow(df) == 0) return(df)
   # 源文件里的别名 -> 库表列名
@@ -303,6 +312,7 @@ normalize_cmr_df <- function(df) {
 #' @return 筛选后的 data.frame
 #' @keywords internal
 #' @export
+#' @encoding UTF-8
 screen_clp <- function(df, kind = c("cmr", "cmr_suspect")) {
   if (is.null(df) || nrow(df) == 0) return(df)
   kind <- match.arg(kind)
@@ -323,6 +333,7 @@ screen_clp <- function(df, kind = c("cmr", "cmr_suspect")) {
 #' @return 主 H 代码列名
 #' @keywords internal
 #' @export
+#' @encoding UTF-8
 find_hazard_code_col <- function(nms) {
   if ("Hazard Statement Code(s)" %in% nms) return("Hazard Statement Code(s)")
   cand <- nms[grepl("Hazard Statement Code\\(s\\)", nms) &
@@ -337,6 +348,7 @@ find_hazard_code_col <- function(nms) {
 #' @return 列名对齐后的 data.frame
 #' @keywords internal
 #' @export
+#' @encoding UTF-8
 normalize_iarc_df <- function(df) {
   if (is.null(df) || nrow(df) == 0) return(df)
   df <- rename_source_cols(df, c(
@@ -357,6 +369,7 @@ normalize_iarc_df <- function(df) {
 #' @return 列名对齐后的 data.frame
 #' @keywords internal
 #' @export
+#' @encoding UTF-8
 normalize_eu_sml_df <- function(df) {
   if (is.null(df) || nrow(df) == 0) return(df)
   df <- rename_source_cols(df, c(
@@ -379,6 +392,7 @@ normalize_eu_sml_df <- function(df) {
 #' @return 处理后的 data.frame
 #' @keywords internal
 #' @export
+#' @encoding UTF-8
 normalize_eu_sml_values <- function(df) {
   if (is.null(df) || nrow(df) == 0) return(df)
   sml_col <- map_source_colname(df, "eu_sml", "sml")
@@ -507,6 +521,7 @@ DB_SOURCES <- list(
 #' @return 存在的文件路径，找不到返回 NULL
 #' @keywords internal
 #' @export
+#' @encoding UTF-8
 resolve_source_file <- function(candidates, inst_dir = file.path(getwd(), "inst")) {
   for (cand in candidates) {
     p <- file.path(inst_dir, cand)
@@ -533,6 +548,7 @@ resolve_source_file <- function(candidates, inst_dir = file.path(getwd(), "inst"
 #' @return 标准化后的 data.frame
 #' @keywords internal
 #' @export
+#' @encoding UTF-8
 fetch_source_data <- function(db_name, source = c("local", "download"),
                               new_file = NULL,
                               inst_dir = file.path(getwd(), "inst")) {
@@ -601,6 +617,7 @@ fetch_source_data <- function(db_name, source = c("local", "download"),
 #' @return list(success, changes, db_write)
 #' @keywords internal
 #' @export
+#' @encoding UTF-8
 update_source_auto <- function(db_name, source = c("local", "download"),
                                new_file = NULL, interactive = TRUE,
                                auto_apply = FALSE, max_auto_changes = 20,
@@ -639,6 +656,7 @@ update_source_auto <- function(db_name, source = c("local", "download"),
 #' @return list(success, changes, db_write)
 #' @export
 #' @export
+#' @encoding UTF-8
 update_cmr_auto <- function(source = c("local", "download"), new_file = NULL,
                             interactive = TRUE, auto_apply = FALSE,
                             max_auto_changes = 20, enrich = TRUE,
@@ -672,6 +690,7 @@ update_cmr_auto <- function(source = c("local", "download"), new_file = NULL,
 #' @return list(success, changes, db_write)
 #' @export
 #' @export
+#' @encoding UTF-8
 update_cmr_suspect_auto <- function(source = c("local", "download"),
                                     new_file = NULL, interactive = TRUE,
                                     auto_apply = FALSE, max_auto_changes = 20,
@@ -700,6 +719,7 @@ update_cmr_suspect_auto <- function(source = c("local", "download"),
 #' @return list(success, changes, db_write)
 #' @export
 #' @export
+#' @encoding UTF-8
 update_iarc_auto <- function(source = c("local", "download"), new_file = NULL,
                              interactive = TRUE, auto_apply = FALSE,
                              max_auto_changes = 20, enrich = TRUE,
@@ -729,6 +749,7 @@ update_iarc_auto <- function(source = c("local", "download"), new_file = NULL,
 #' @return list(success, changes, db_write)
 #' @export
 #' @export
+#' @encoding UTF-8
 update_eu_sml_auto <- function(source = c("local", "download"), new_file = NULL,
                                interactive = TRUE, auto_apply = FALSE,
                                max_auto_changes = 20, enrich = TRUE,
@@ -752,11 +773,13 @@ update_eu_sml_auto <- function(source = c("local", "download"), new_file = NULL,
 #' 可一键自动更新的数据源清单
 #' @keywords internal
 #' @export
+#' @encoding UTF-8
 ALL_AUTO_DBS <- names(DB_SOURCES)
 
 #' 解析 databases 参数："all" 展开为全部数据源，否则校验名字合法
 #' @keywords internal
 #' @export
+#' @encoding UTF-8
 resolve_db_names <- function(databases) {
   if (identical(databases, "all")) return(ALL_AUTO_DBS)
   databases <- as.character(databases)
@@ -804,6 +827,7 @@ resolve_db_names <- function(databases) {
 #'   database / status("ok"|"failed") / added / removed / modified / message
 #' @export
 #' @export
+#' @encoding UTF-8
 update_database_auto <- function(databases = "all",
                                  source = c("download", "local"),
                                  svhc_source = c("auto", "local", "echa"),

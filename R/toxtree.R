@@ -28,6 +28,7 @@
 #' @return 逻辑向量
 #' @keywords internal
 #' @export
+#' @encoding UTF-8
 .smiles_is_parsable <- function(smiles) {
   vapply(as.character(smiles), function(s) {
     if (is.na(s) || !nzchar(s)) return(FALSE)
@@ -210,7 +211,7 @@ ensure_toxtree_jar <- function(jar_path = NULL, download = TRUE) {
 #     InChIGeneratorFactory（来自 rcdklibs 的 JNA 版本）。
 #   - CDK 2.9 的 AtomContainer2 包级私有（package-private），且覆盖了
 #     IAtomContainer.setProperty(String, Object) 为 setProperty(Object, Object)。
-#     rJava 的 .jcall() 按静态声明类型分派，无法从 R 找到 (Object, Object)
+#     rJava 的 rJava::.jcall() 按静态声明类型分派，无法从 R 找到 (Object, Object)
 #     签名。解法：将 CDKHelper.class 编译到 inst/java/org/openscience/cdk/
 #     目录（与 AtomContainer2 同包），由该类代为调用 setProperty()。
 #   - rJava 将 jobjRef 识别为自己的类型，不能直接匹配 java.lang.Object。
@@ -235,9 +236,8 @@ ensure_toxtree_jar <- function(jar_path = NULL, download = TRUE) {
   if (!requireNamespace("rJava", quietly = TRUE)) {
     return("rJava package is not installed.")
   }
-  library(rJava, warn.conflicts = FALSE)
   jh <- tryCatch({
-    .jinit()
+    rJava::.jinit()
     TRUE
   }, error = function(e) {
     paste0("JVM initialisation failed: ", conditionMessage(e))
@@ -339,16 +339,16 @@ ensure_toxtree_jar <- function(jar_path = NULL, download = TRUE) {
 
   # Load rcdklibs first (JNA InChI factory is cached here)
   for (jar in jars$rcdklibs) {
-    .jaddClassPath(jar)
+    rJava::.jaddClassPath(jar)
   }
   # Load Toxtree after rcdklibs (jnati/JNI InChI factory will NOT override
   # the cached JNA factory because the singleton pattern only uses the first call)
-  .jaddClassPath(jars$toxtree)
+  rJava::.jaddClassPath(jars$toxtree)
   for (jar in jars$ext_jars) {
-    .jaddClassPath(jar)
+    rJava::.jaddClassPath(jar)
   }
   # Load CDKHelper from the deployed cache copy
-  .jaddClassPath(jars$cdkhelper)
+  rJava::.jaddClassPath(jars$cdkhelper)
 
   invisible(NULL)
 }
@@ -370,14 +370,14 @@ ensure_toxtree_jar <- function(jar_path = NULL, download = TRUE) {
 #' @noRd
 .java_run_cramer <- function(smiles) {
   # Create builder fresh — DefaultChemObjectBuilder is a factory (cheap to create)
-  builder <- .jcast(
-    .jnew("org.openscience.cdk.DefaultChemObjectBuilder"),
+  builder <- rJava::.jcast(
+    rJava::.jnew("org.openscience.cdk.DefaultChemObjectBuilder"),
     "org/openscience/cdk/interfaces/IChemObjectBuilder"
   )
 
   # Parse SMILES
-  parser <- .jnew("org.openscience.cdk.smiles.SmilesParser", builder)
-  mol <- .jcall(parser, "Lorg/openscience/cdk/interfaces/IAtomContainer;",
+  parser <- rJava::.jnew("org.openscience.cdk.smiles.SmilesParser", builder)
+  mol <- rJava::.jcall(parser, "Lorg/openscience/cdk/interfaces/IAtomContainer;",
                  "parseSmiles", smiles)
   if (is.null(mol)) {
     return(list(verified = FALSE, category = NA_character_,
@@ -386,7 +386,7 @@ ensure_toxtree_jar <- function(jar_path = NULL, download = TRUE) {
   }
 
   # Set MolFlags (the blocker that required CDKHelper)
-  ok <- .jcall("org.openscience.cdk.CDKHelper", "Z", "setMolFlags", mol)
+  ok <- rJava::.jcall("org.openscience.cdk.CDKHelper", "Z", "setMolFlags", mol)
   if (!ok) {
     return(list(verified = FALSE, category = NA_character_,
                 inchi = NULL, inchikey = NULL,
@@ -394,15 +394,15 @@ ensure_toxtree_jar <- function(jar_path = NULL, download = TRUE) {
   }
 
   # Get InChI (optional, used downstream)
-  inchi <- .jcall("org.openscience.cdk.CDKHelper", "S", "getInChI", mol)
+  inchi <- rJava::.jcall("org.openscience.cdk.CDKHelper", "S", "getInChI", mol)
   inchikey <- NULL
   if (!is.null(inchi) && !is.na(inchi) && nzchar(inchi)) {
-    inchikey <- .jcall("org.openscience.cdk.CDKHelper", "S",
+    inchikey <- rJava::.jcall("org.openscience.cdk.CDKHelper", "S",
                          "inchiToInchiKey", inchi)
   }
 
   # Run Cramer via CDKHelper
-  result <- .jcall("org.openscience.cdk.CDKHelper",
+  result <- rJava::.jcall("org.openscience.cdk.CDKHelper",
                     "LtoxTree/core/IDecisionResult;",
                     "runCramerRules", mol, builder)
   if (is.null(result)) {
@@ -412,7 +412,7 @@ ensure_toxtree_jar <- function(jar_path = NULL, download = TRUE) {
   }
 
   # Extract category
-  category <- .jcall("org.openscience.cdk.CDKHelper", "S",
+  category <- rJava::.jcall("org.openscience.cdk.CDKHelper", "S",
                       "getCramerCategory", result)
   # verified = the tree reached a category (not excluded by any rule)
   verified <- !is.null(result) && !is.na(category) && nzchar(category)
@@ -491,6 +491,7 @@ ensure_toxtree_jar <- function(jar_path = NULL, download = TRUE) {
 #' @importFrom dplyr mutate select filter
 #' @export
 #' @export
+#' @encoding UTF-8
 run_toxtree <- function(data,
                         module = "toxTree.tree.cramer.CramerRules",
                         output = "toxtree_results.csv",
@@ -504,8 +505,8 @@ run_toxtree <- function(data,
 
   # --- 输入校验 ---
   if (!"SMILES" %in% names(data)) {
-    stop("Input data must contain a 'SMILES' column. ",
-         "Run prepare_input() first to derive one from chemical names.",
+    stop("Input data must contain a 'SMILES' column (needed for Cramer ",
+         "classification). Regulatory matching without it: use assign_toxicity().",
          call. = FALSE)
   }
   java_bin <- Sys.which("java")
