@@ -24,7 +24,7 @@
 #' @return 命名 list：elements（字符向量）、formula、smiles、inchikey、
 #'   input_type、source_note
 #' @keywords internal
-#' @encoding UTF-8
+#' @export
 normalize_input_identity <- function(input, online = FALSE, db_path = NULL) {
   # P1-②：显式拒绝非标量/整表输入（原实现会对 data.frame 报晦涩的
   # 'length = 6' in coercion to 'logical(1)'）
@@ -86,7 +86,7 @@ normalize_input_identity <- function(input, online = FALSE, db_path = NULL) {
 
 #' 从 CAS 解析身份（查库 → 可选联网）
 #' @keywords internal
-#' @encoding UTF-8
+#' @export
 .resolve_from_cas <- function(cas, online, db_path) {
   cas_canon <- canonicalize_cas(cas)
   if (is.na(cas_canon)) {
@@ -144,7 +144,7 @@ normalize_input_identity <- function(input, online = FALSE, db_path = NULL) {
 
 #' 从 InChIKey 解析身份（查 chemicals 表）
 #' @keywords internal
-#' @encoding UTF-8
+#' @export
 .resolve_from_inchikey <- function(ik, db_path) {
   db <- get_db_connection(db_path)
   on.exit(DBI::dbDisconnect(db), add = TRUE)
@@ -172,7 +172,7 @@ normalize_input_identity <- function(input, online = FALSE, db_path = NULL) {
 
 #' 从名称联网解析身份（PubChem 名称搜索）
 #' @keywords internal
-#' @encoding UTF-8
+#' @export
 .resolve_from_name <- function(name, db_path) {
   base <- "https://pubchem.ncbi.nlm.nih.gov/rest/pug"
   cid <- tryCatch({
@@ -243,7 +243,7 @@ normalize_input_identity <- function(input, online = FALSE, db_path = NULL) {
 #' 不出现，"含砷"对判断砷化合物是有意义的。
 #'
 #' @noRd
-#' @encoding UTF-8
+#' @export
 .skeletal_elements <- c("c", "h", "o", "n", "s", "p",
                         "f", "cl", "br", "i",
                         "na", "k", "ca", "mg", "si", "b")
@@ -254,7 +254,7 @@ normalize_input_identity <- function(input, online = FALSE, db_path = NULL) {
 #' 含同样的 As，光看元素区分不了，但含碳骨架是个有效的分界。
 #'
 #' @noRd
-#' @encoding UTF-8
+#' @export
 .organic_metal_guard <- c("as", "co", "hg", "se", "cd")
 
 #' 从分子式字符串提取元素符号集合
@@ -264,7 +264,7 @@ normalize_input_identity <- function(input, online = FALSE, db_path = NULL) {
 #' @param formula 分子式字符串，如 "C6H12O6"、"CdCl2"、"Cr+6"
 #' @return 去重后的元素符号字符向量
 #' @keywords internal
-#' @encoding UTF-8
+#' @export
 parse_formula_elements <- function(formula) {
   if (is.null(formula) || is.na(formula) || !nzchar(formula)) return(character(0))
   # 去掉电荷标记 + / - 及数字（保留字母）
@@ -284,7 +284,7 @@ parse_formula_elements <- function(formula) {
 #' @param smiles SMILES 字符串
 #' @return 去重后的元素符号字符向量
 #' @keywords internal
-#' @encoding UTF-8
+#' @export
 parse_smiles_elements <- function(smiles) {
   if (is.null(smiles) || is.na(smiles) || !nzchar(smiles)) return(character(0))
 
@@ -344,7 +344,7 @@ parse_smiles_elements <- function(smiles) {
 #' @param agent IARC agent 名称
 #' @return 匹配到的元素词字符向量
 #' @keywords internal
-#' @encoding UTF-8
+#' @export
 parse_agent_elements <- function(agent) {
   if (is.null(agent) || is.na(agent) || !nzchar(agent)) return(character(0))
   # 词 -> 元素符号映射（确保与 parse_formula_elements / parse_smiles_elements 输出一致）
@@ -385,7 +385,7 @@ parse_agent_elements <- function(agent) {
 #' @param x 字符向量
 #' @return 归一化后的字符向量
 #' @keywords internal
-#' @encoding UTF-8
+#' @export
 .norm_iarc_name <- function(x) {
   x <- tolower(as.character(x))
   gsub("[^a-z0-9]+", "", x)
@@ -404,7 +404,7 @@ parse_agent_elements <- function(agent) {
 #' @param agent IARC 条目名向量
 #' @return 与输入等长的字符向量，解析不出时为 NA
 #' @keywords internal
-#' @encoding UTF-8
+#' @export
 parse_iarc_see_target <- function(agent) {
   a <- as.character(agent)
   out <- rep(NA_character_, length(a))
@@ -439,7 +439,7 @@ parse_iarc_see_target <- function(agent) {
 #' 从隐形变成显式可见 —— 这是后续接成员清单 / 结构骨架层的前提。
 #'
 #' @noRd
-#' @encoding UTF-8
+#' @export
 .iarc_extra_group_entries <- c(
   "Aflatoxins",                                    # 组 1
   "Bleomycins",                                    # 组 2B
@@ -464,7 +464,7 @@ parse_iarc_see_target <- function(agent) {
 #' 物质，只是源表里 CAS 列空着。必须排除，否则它会以组条目身份进注册表。
 #'
 #' @noRd
-#' @encoding UTF-8
+#' @export
 .iarc_force_single <- c("Arecoline")
 
 #' 解析 iarc 表里的 (see X) 交叉引用，给出可补的分组
@@ -481,7 +481,7 @@ parse_iarc_see_target <- function(agent) {
 #' @param db_path 数据库路径
 #' @return data.frame：InChIKey / group_classification / alias_of / source_agent
 #' @keywords internal
-#' @encoding UTF-8
+#' @export
 query_iarc_see_alias_map <- function(db_path = NULL) {
   empty <- data.frame(InChIKey = character(0), group_classification = character(0),
                       alias_of = character(0), source_agent = character(0),
@@ -530,7 +530,7 @@ query_iarc_see_alias_map <- function(db_path = NULL) {
 #' @return iarc_summary，`group_classification` 的空缺已补齐；补了几条记录在
 #'   属性 `see_alias_added` 上
 #' @keywords internal
-#' @encoding UTF-8
+#' @export
 apply_iarc_see_aliases <- function(iarc_summary, alias_map) {
   if (is.null(iarc_summary)) {
     iarc_summary <- data.frame(InChIKey = character(0),
@@ -578,7 +578,7 @@ apply_iarc_see_aliases <- function(iarc_summary, alias_map) {
 #'   才属于本条"（如有机砷条目要求碳）。两者都用分号分隔。
 #'
 #' @keywords internal
-#' @encoding UTF-8
+#' @export
 query_iarc_group_registry <- function(db_path = NULL) {
   db <- get_db_connection(db_path)
   on.exit(DBI::dbDisconnect(db), add = TRUE)
@@ -743,7 +743,7 @@ query_iarc_group_registry <- function(db_path = NULL) {
 #' @param registry query_iarc_group_registry() 的返回 data.frame
 #' @return data.frame（长表）：命中组列表 + 证据 + 置信
 #' @keywords internal
-#' @encoding UTF-8
+#' @export
 screen_iarc_groups <- function(identity, registry) {
   if (nrow(registry) == 0) {
     return(data.frame(
@@ -894,7 +894,7 @@ screen_iarc_groups <- function(identity, registry) {
 
 #' UVCB / 复杂物质特征词表（用于从名称识别复杂物质）
 #' @keywords internal
-#' @encoding UTF-8
+#' @export
 UVCB_INDICATOR_WORDS <- c(
   "UVCB", "reaction mass", "polymer", "oligomer", "homopolymer", "copolymer",
   "branched and linear", "branched", "linear",
@@ -911,7 +911,7 @@ UVCB_INDICATOR_WORDS <- c(
 
 #' 母体结构关键词表（用于匹配输入物质与 UVCB 组）
 #' @keywords internal
-#' @encoding UTF-8
+#' @export
 BACKBONE_KEYWORDS <- c(
   "phthalate", "phenol", "nonylphenol", "octylphenol", "heptylphenol",
   "paraffin", "chlorinated paraffin", "MCCP", "SCCP",
@@ -936,7 +936,7 @@ BACKBONE_KEYWORDS <- c(
 #' @param name 物质名称字符串
 #' @return 字符向量：命中的母体关键词（去重）
 #' @keywords internal
-#' @encoding UTF-8
+#' @export
 extract_backbone_keywords <- function(name) {
   if (is.null(name) || is.na(name) || !nzchar(name)) return(character(0))
   .backbones <- BACKBONE_KEYWORDS
@@ -960,7 +960,7 @@ extract_backbone_keywords <- function(name) {
 #' @param name 物质名称
 #' @return 字符向量：类别标签（去重）
 #' @keywords internal
-#' @encoding UTF-8
+#' @export
 categorize_uvcb <- function(name) {
   if (is.null(name) || is.na(name) || !nzchar(name)) return(character(0))
   cats <- character(0)
@@ -991,7 +991,7 @@ categorize_uvcb <- function(name) {
 #' @param name 物质名称
 #' @return 逻辑值
 #' @keywords internal
-#' @encoding UTF-8
+#' @export
 is_uvcb_name <- function(name) {
   if (is.null(name) || is.na(name) || !nzchar(name)) return(FALSE)
   .indicators <- UVCB_INDICATOR_WORDS
@@ -1007,7 +1007,7 @@ is_uvcb_name <- function(name) {
 #' @param db_path 数据库路径
 #' @return data.frame
 #' @keywords internal
-#' @encoding UTF-8
+#' @export
 query_cmr_uvcb_registry <- function(db_path = NULL) {
   db <- get_db_connection(db_path)
   on.exit(DBI::dbDisconnect(db), add = TRUE)
@@ -1057,7 +1057,7 @@ query_cmr_uvcb_registry <- function(db_path = NULL) {
 #' @param db_path 数据库路径
 #' @return data.frame
 #' @keywords internal
-#' @encoding UTF-8
+#' @export
 query_svhc_uvcb_registry <- function(db_path = NULL) {
   db <- get_db_connection(db_path)
   on.exit(DBI::dbDisconnect(db), add = TRUE)
@@ -1114,7 +1114,7 @@ query_svhc_uvcb_registry <- function(db_path = NULL) {
 #' @param db_path 数据库路径
 #' @return 字符向量：输入物质的关键词
 #' @keywords internal
-#' @encoding UTF-8
+#' @export
 extract_input_keywords <- function(identity, db_path = NULL) {
   keywords <- character(0)
 
@@ -1181,7 +1181,7 @@ extract_input_keywords <- function(identity, db_path = NULL) {
 #' @param source_db 字符串，标识数据来源（"cmr" / "svhc"）
 #' @return data.frame（长表）
 #' @keywords internal
-#' @encoding UTF-8
+#' @export
 screen_uvcb_groups <- function(identity, registry, source_db) {
   if (nrow(registry) == 0) {
     return(data.frame(
@@ -1309,7 +1309,7 @@ screen_uvcb_groups <- function(identity, registry, source_db) {
 #' # Query across all databases
 #' assign_group_membership("CdCl2", source = "all")
 #' }
-#' @encoding UTF-8
+#' @export
 assign_group_membership <- function(input, source = "all",
                                      online = FALSE, db_path = NULL) {
   # 参数校验
@@ -1469,7 +1469,7 @@ assign_group_membership <- function(input, source = "all",
 #' )
 #' hits <- assign_group_membership_table(data, source = "all")
 #' }
-#' @encoding UTF-8
+#' @export
 assign_group_membership_table <- function(data, source = "all",
                                           online = FALSE, db_path = NULL) {
   valid_sources <- c("iarc", "cmr", "svhc", "all")

@@ -53,7 +53,7 @@
 #' export_toxicity_report(res, "report.xlsx")
 #' }
 #' @export
-#' @encoding UTF-8
+#' @export
 export_toxicity_report <- function(result_data, path, summary = NULL,
                                    issues = NULL, overwrite = TRUE) {
   if (!is.data.frame(result_data)) {

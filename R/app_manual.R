@@ -52,7 +52,7 @@
 #' check_manual_lists()            # detect and ask one by one
 #' check_manual_lists(ask = FALSE) # report only, no update
 #' }
-#' @encoding UTF-8
+#' @export
 check_manual_lists <- function(ask = TRUE, auto_apply = FALSE,
                                inst_dir = file.path(getwd(), "inst"),
                                db_path = NULL) {

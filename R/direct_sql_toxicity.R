@@ -81,7 +81,7 @@
 #'   wins: the smallest SML (EU and China compared together) and, for IARC, the
 #'   most severe group (1 &gt; 2A &gt; 2B &gt; 3).
 #' @export
-#' @encoding UTF-8
+#' @export
 assign_toxicity <- function(data, toxtree_result = "toxtree_results.csv",
                            check_updates = FALSE, auto_update = FALSE, show_update_details = TRUE,
                            output_file = NULL, db_path = NULL,
@@ -571,7 +571,7 @@ assign_toxicity <- function(data, toxtree_result = "toxtree_results.csv",
 #' @param message 原始错误信息
 #' @return x，附带 `query_error` 属性
 #' @keywords internal
-#' @encoding UTF-8
+#' @export
 .attach_query_error <- function(x, message) {
   attr(x, "query_error") <- message
   x
@@ -592,7 +592,7 @@ assign_toxicity <- function(data, toxtree_result = "toxtree_results.csv",
 #' @param inchikey_list Comma-separated list of InChIKeys for SQL IN clause
 #' @param key_column Name of the InChIKey column in the table
 #' @return Vector of matching InChIKeys
-#' @encoding UTF-8
+#' @export
 query_database_matches <- function(con, table_name, inchikey_list, key_column = "InChIKey") {
   query <- paste0("SELECT DISTINCT ", key_column, " FROM ", table_name,
                   " WHERE ", key_column, " IN (", inchikey_list, ")")
@@ -622,7 +622,7 @@ query_database_matches <- function(con, table_name, inchikey_list, key_column = 
 #' @param con Database connection
 #' @param inchikey_list Comma-separated list of InChIKeys for SQL IN clause
 #' @return Data frame with InChIKey and group_classification
-#' @encoding UTF-8
+#' @export
 query_iarc_data <- function(con, inchikey_list) {
   query <- paste0("SELECT InChIKey, group_classification FROM iarc WHERE InChIKey IN (", inchikey_list, ")")
 
@@ -644,7 +644,7 @@ query_iarc_data <- function(con, inchikey_list) {
 #' @param con Database connection
 #' @param inchikey_list Comma-separated list of InChIKeys for SQL IN clause
 #' @return Data frame with InChIKey, sml, and sml_group
-#' @encoding UTF-8
+#' @export
 query_eu_sml_data <- function(con, inchikey_list) {
   query <- paste0("SELECT InChIKey, sml, sml_group FROM eu_sml WHERE InChIKey IN (", inchikey_list, ")")
 
@@ -672,7 +672,7 @@ query_eu_sml_data <- function(con, inchikey_list) {
 #'
 #' @param con Database connection
 #' @return Data frame with group_no and sml
-#' @encoding UTF-8
+#' @export
 query_eu_sml_group_data <- function(con) {
   query <- "SELECT group_no, sml FROM eu_sml_group"
 
@@ -694,7 +694,7 @@ query_eu_sml_group_data <- function(con) {
 #' @param con Database connection
 #' @param inchikey_list Comma-separated list of InChIKeys for SQL IN clause
 #' @return Data frame with InChIKey and sml_value
-#' @encoding UTF-8
+#' @export
 query_china_sml_data <- function(con, inchikey_list) {
   # Check if china_sml table has any records first
   count_query <- "SELECT COUNT(*) as count FROM china_sml"
@@ -747,7 +747,7 @@ query_china_sml_data <- function(con, inchikey_list) {
 #' @return 与 x 等长的字符向量：命中的基础码按 codes 顺序用 "; " 连接；
 #'   无命中（含 NA、空串、只有非 CMR 码）返回 NA_character_
 #' @keywords internal
-#' @encoding UTF-8
+#' @export
 extract_cmr_h_codes <- function(x, codes = .cmr_h_codes) {
   x <- as.character(x)
   vapply(x, function(one) {
@@ -772,7 +772,7 @@ extract_cmr_h_codes <- function(x, codes = .cmr_h_codes) {
 #' @return data.frame(InChIKey, hazard_statement_codes)，每个 InChIKey 一行；
 #'   表不存在或查询失败时返回 0 行（调用方据此退化为全部 NA，不中断流程）
 #' @keywords internal
-#' @encoding UTF-8
+#' @export
 query_cmr_data <- function(con, inchikey_list) {
   query <- paste0("SELECT InChIKey, hazard_statement_codes FROM cmr ",
                   "WHERE InChIKey IN (", inchikey_list, ")")
@@ -826,7 +826,7 @@ query_cmr_data <- function(con, inchikey_list) {
 #' @param x 字符向量，如 `c("1", "2B", NA)`
 #' @return 与 x 等长的整数；未知或缺失返回 99L
 #' @keywords internal
-#' @encoding UTF-8
+#' @export
 .iarc_rank <- function(x) {
   r <- unname(.iarc_severity_rank[toupper(trimws(as.character(x)))])
   r[is.na(r)] <- 99L
@@ -841,7 +841,7 @@ query_cmr_data <- function(con, inchikey_list) {
 #' @param x 字符向量，如 "High (Class III)"
 #' @return 与 x 等长的 "I"/"II"/"III"；无法识别返回 NA_character_
 #' @keywords internal
-#' @encoding UTF-8
+#' @export
 parse_cramer_class <- function(x) {
   x <- trimws(as.character(x))
   out <- rep(NA_character_, length(x))
@@ -860,7 +860,7 @@ parse_cramer_class <- function(x) {
 #'   SML > 60 归入 I 级：规则表上界就是 60，且现库中 EU 最大恰为 60、中国最大
 #'   48，该分支取不到，写在这里只是不留未定义行为。
 #' @keywords internal
-#' @encoding UTF-8
+#' @export
 toxicity_tier_from_sml <- function(sml) {
   vapply(sml, function(s) {
     if (is.na(s)) return(NA_character_)
@@ -877,7 +877,7 @@ toxicity_tier_from_sml <- function(sml) {
 #' @param eu,cn 两个数值（mg/kg），NA 表示该侧没有限值
 #' @return list(value = 数值, source = "EU" / "China" / "EU+China" / NA)
 #' @keywords internal
-#' @encoding UTF-8
+#' @export
 strictest_sml <- function(eu, cn) {
   cand <- c(eu, cn)
   src <- c("EU", "China")
@@ -907,7 +907,7 @@ strictest_sml <- function(eu, cn) {
 #'   冲突时取更严的一个，并在依据里标成 `IARC(group):1` 以区分来源。
 #' @return data.frame(Toxic_level, Toxic_level_basis)，与输入等长
 #' @keywords internal
-#' @encoding UTF-8
+#' @export
 compute_toxicity_levels <- function(svhc, cmr_h_codes, cmr_suspect, edc, iarc,
                                     sml_eu, sml_cn, cramer_rules,
                                     iarc_extra = NULL) {
@@ -993,7 +993,7 @@ compute_toxicity_levels <- function(svhc, cmr_h_codes, cmr_suspect, edc, iarc,
 #' @param iarc_data [query_iarc_data()] 的结果
 #' @return data.frame(InChIKey, group_classification)，每个 InChIKey 一行
 #' @keywords internal
-#' @encoding UTF-8
+#' @export
 summarise_iarc_groups <- function(iarc_data) {
   empty <- data.frame(InChIKey = character(0),
                       group_classification = character(0),
@@ -1025,7 +1025,7 @@ summarise_iarc_groups <- function(iarc_data) {
 #' @param x 字符向量
 #' @return 与 x 等长的 list，每项是组号字符向量（可能为空）
 #' @keywords internal
-#' @encoding UTF-8
+#' @export
 extract_group_nos <- function(x) {
   x <- as.character(x)
   lapply(x, function(one) {
@@ -1046,7 +1046,7 @@ extract_group_nos <- function(x) {
 #' @return data.frame(InChIKey, sml, from_group, groups)；
 #'   `from_group` 表示胜出的值是否来自组限值（用于打 `*`）
 #' @keywords internal
-#' @encoding UTF-8
+#' @export
 summarise_eu_sml <- function(eu_sml_data, eu_sml_group_all) {
   empty <- data.frame(InChIKey = character(0), sml = numeric(0),
                       from_group = logical(0), groups = character(0),
@@ -1096,7 +1096,7 @@ summarise_eu_sml <- function(eu_sml_data, eu_sml_group_all) {
 #' @param china_sml_data [query_china_sml_data()] 的结果
 #' @return data.frame(InChIKey, sml)
 #' @keywords internal
-#' @encoding UTF-8
+#' @export
 summarise_china_sml <- function(china_sml_data) {
   empty <- data.frame(InChIKey = character(0), sml = numeric(0),
                       stringsAsFactors = FALSE)
@@ -1139,7 +1139,7 @@ summarise_china_sml <- function(china_sml_data) {
 #' @return data.frame(input_index, Group_hits, Group_IARC, Group_review)，
 #'   每个出现过的 input_index 一行
 #' @keywords internal
-#' @encoding UTF-8
+#' @export
 summarise_group_hits <- function(hits) {
   empty <- data.frame(input_index = integer(0), Group_hits = character(0),
                       Group_IARC = character(0), Group_review = character(0),

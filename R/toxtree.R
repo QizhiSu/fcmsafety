@@ -27,7 +27,7 @@
 #' @param smiles 字符向量
 #' @return 逻辑向量
 #' @keywords internal
-#' @encoding UTF-8
+#' @export
 .smiles_is_parsable <- function(smiles) {
   vapply(as.character(smiles), function(s) {
     if (is.na(s) || !nzchar(s)) return(FALSE)
@@ -490,7 +490,7 @@ ensure_toxtree_jar <- function(jar_path = NULL, download = TRUE) {
 #'
 #' @importFrom dplyr mutate select filter
 #' @export
-#' @encoding UTF-8
+#' @export
 run_toxtree <- function(data,
                         module = "toxTree.tree.cramer.CramerRules",
                         output = "toxtree_results.csv",

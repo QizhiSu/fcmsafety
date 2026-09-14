@@ -39,7 +39,7 @@
 #' @param db_path Optional custom path to database file
 #' @return DBI connection object
 #' @export
-#' @encoding UTF-8
+#' @export
 get_db_connection <- function(db_path = NULL) {
   if (is.null(db_path)) {
     db_path <- .resolve_db_path(NULL)
@@ -72,7 +72,7 @@ get_db_connection <- function(db_path = NULL) {
 #' @param db_path Explicit path, or NULL to apply the default rule
 #' @return Character path (the file itself is not checked for existence)
 #' @keywords internal
-#' @encoding UTF-8
+#' @export
 .resolve_db_path <- function(db_path = NULL) {
   if (!is.null(db_path)) return(db_path)
   if (dir.exists(file.path(getwd(), "inst"))) {
@@ -90,7 +90,7 @@ get_db_connection <- function(db_path = NULL) {
 #'
 #' @return Path to the schema file
 #' @keywords internal
-#' @encoding UTF-8
+#' @export
 find_schema_file <- function() {
   schema_path <- system.file("fcmsafety_schema.sql", package = "fcmsafety")
   if (!file.exists(schema_path)) {
@@ -112,7 +112,7 @@ find_schema_file <- function() {
 #' @param schema_sql Character string containing the full schema
 #' @return Character vector of individual SQL statements
 #' @keywords internal
-#' @encoding UTF-8
+#' @export
 split_sql_statements <- function(schema_sql) {
   lines <- strsplit(schema_sql, "\n", fixed = TRUE)[[1]]
   # Remove comment lines and empty lines
@@ -191,7 +191,7 @@ split_sql_statements <- function(schema_sql) {
 #' @return `TRUE` if the table was created, `FALSE` if it already existed
 #'   (invisibly)
 #' @keywords internal
-#' @encoding UTF-8
+#' @export
 ensure_schema_table <- function(table, db_path = NULL, schema_path = NULL) {
   if (!is.character(table) || length(table) != 1L || is.na(table) ||
       !nzchar(trimws(table))) {
@@ -290,7 +290,7 @@ ensure_schema_table <- function(table, db_path = NULL, schema_path = NULL) {
 #' @param schema_path Optional schema file, defaulting to `find_schema_file()`
 #' @return Number of rows in the rebuilt table (integer, invisibly)
 #' @keywords internal
-#' @encoding UTF-8
+#' @export
 rebuild_table_from_schema <- function(table, db_path = NULL, schema_path = NULL) {
   if (!is.character(table) || length(table) != 1L || is.na(table) ||
       !nzchar(trimws(table))) {
@@ -436,7 +436,7 @@ rebuild_table_from_schema <- function(table, db_path = NULL, schema_path = NULL)
 #'   says whether the column had to be created and `filled` counts the rows that
 #'   received a value on this run
 #' @keywords internal
-#' @encoding UTF-8
+#' @export
 migrate_cmr_suspect_index_no <- function(db_path = NULL, index_map = NULL,
                                          meta_file = NULL,
                                          meta_sheet = "cmr_suspect") {
@@ -525,7 +525,7 @@ migrate_cmr_suspect_index_no <- function(db_path = NULL, index_map = NULL,
 #' @param default Value to return if column not found
 #' @return Vector of column values or default
 #' @keywords internal
-#' @encoding UTF-8
+#' @export
 match_col <- function(data, pattern, default = NA) {
   if (!is.data.frame(data) || nrow(data) == 0) {
     return(rep(default, if (is.data.frame(data)) nrow(data) else 0))
@@ -561,7 +561,7 @@ match_col <- function(data, pattern, default = NA) {
 #'
 #' @return Named list of lists with elements `file` and `sheet` (or NULL)
 #' @keywords internal
-#' @encoding UTF-8
+#' @export
 resolve_xlsx_mapping <- function() {
   list(
     svhc = list(file = "svhc_meta.xlsx", sheet = NULL),
@@ -585,7 +585,7 @@ resolve_xlsx_mapping <- function() {
 #' @param sheet Sheet name or NULL to use the first sheet
 #' @return Data frame
 #' @keywords internal
-#' @encoding UTF-8
+#' @export
 import_xlsx <- function(file_path, sheet = NULL) {
   if (is.null(sheet)) {
     suppressWarnings(rio::import(file_path))
@@ -605,7 +605,7 @@ import_xlsx <- function(file_path, sheet = NULL) {
 #' @param db_path Optional custom path to database file (for testing)
 #' @return Logical indicating success
 #' @export
-#' @encoding UTF-8
+#' @export
 initialize_database <- function(force_recreate = FALSE, db_path = NULL) {
   message("🔧 Initializing FCMSafety SQLite database...")
 
@@ -669,7 +669,7 @@ initialize_database <- function(force_recreate = FALSE, db_path = NULL) {
 #' @param db_path Optional custom path to database file (for testing)
 #' @return List with database status information
 #' @export
-#' @encoding UTF-8
+#' @export
 check_database_status <- function(db_path = NULL) {
   tryCatch({
     con <- get_db_connection(db_path)
@@ -748,7 +748,7 @@ check_database_status <- function(db_path = NULL) {
 #' @param db_name Database name (svhc or cmr)
 #' @return Data frame matching the _raw table columns
 #' @keywords internal
-#' @encoding UTF-8
+#' @export
 process_raw_for_migration <- function(data, db_name) {
   safe_get_col <- function(col_name, default = NA) {
     match_col(data, col_name, default = default)
@@ -822,7 +822,7 @@ process_raw_for_migration <- function(data, db_name) {
 #' @param db_path Optional custom path to database file (for testing)
 #' @return Logical indicating success
 #' @export
-#' @encoding UTF-8
+#' @export
 migrate_xlsx_to_sqlite <- function(source_dir = NULL, backup_existing = TRUE, db_path = NULL) {
   message("🔄 Starting migration from XLSX to SQLite (atomic swap)...")
 
@@ -1050,7 +1050,7 @@ migrate_xlsx_to_sqlite <- function(source_dir = NULL, backup_existing = TRUE, db
 #' @param data Raw data from xlsx file
 #' @param db_name Database name for specific processing rules
 #' @return Processed data frame ready for SQLite insertion
-#' @encoding UTF-8
+#' @export
 process_database_for_migration <- function(data, db_name) {
   safe_get_col <- function(col_name, default = NA) {
     match_col(data, col_name, default = default)

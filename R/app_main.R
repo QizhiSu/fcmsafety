@@ -63,7 +63,7 @@ display_database_summary <- function(status) {
 #' @param backup_xlsx Logical, whether to backup existing xlsx files
 #' @return Logical indicating success
 #' @export
-#' @encoding UTF-8
+#' @export
 setup_fcmsafety_database <- function(force_reinit = FALSE, backup_xlsx = TRUE) {
   message("🚀 Setting up FCMSafety SQLite Database System")
   message(paste(rep("=", 60), collapse = ""))
@@ -128,7 +128,7 @@ setup_fcmsafety_database <- function(force_reinit = FALSE, backup_xlsx = TRUE) {
 #' @param show_recent_activity Logical, whether to show recent update activity
 #' @return Invisible status object
 #' @export
-#' @encoding UTF-8
+#' @export
 fcmsafety_status <- function(show_recent_activity = TRUE) {
   message("📊 FCMSafety Database System Status")
   message(paste(rep("=", 50), collapse = ""))
@@ -174,7 +174,7 @@ fcmsafety_status <- function(show_recent_activity = TRUE) {
 #'
 #' @param backup_dir Directory to store backups (default: inst/backups/)
 #' @return Logical indicating success
-#' @encoding UTF-8
+#' @export
 backup_xlsx_files <- function(backup_dir = NULL) {
   if (is.null(backup_dir)) {
     backup_dir <- file.path(getwd(), "inst", "backups")

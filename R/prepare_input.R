@@ -60,7 +60,7 @@
 #' @param required 逻辑值，找不到时是否报错
 #' @return 命中的列名（字符）或 NULL
 #' @keywords internal
-#' @encoding UTF-8
+#' @export
 .fcm_pick_col <- function(data, explicit, candidates, what, required = TRUE) {
   nm <- names(data)
 
@@ -101,7 +101,7 @@
 #'
 #' @return InChIGeneratorFactory 的 Java 对象引用；不可用时返回 NULL
 #' @keywords internal
-#' @encoding UTF-8
+#' @export
 .fcm_inchi_factory <- function() {
   if (!is.null(.fcm_env$inchi_factory)) return(.fcm_env$inchi_factory)
   if (isTRUE(.fcm_env$inchi_unavailable)) return(NULL)
@@ -138,7 +138,7 @@
 #' @param smiles 单个 SMILES 字符串
 #' @return 命名 list：ok / inchikey / smiles_canonical / formula / mass / note
 #' @keywords internal
-#' @encoding UTF-8
+#' @export
 .fcm_identify_one <- function(smiles) {
   empty <- list(ok = FALSE, inchikey = NA_character_, smiles_canonical = NA_character_,
                 formula = NA_character_, mass = NA_real_, note = NA_character_)
@@ -208,7 +208,7 @@
 #' @param by_skeleton 逻辑值，TRUE 时按前 14 位骨架匹配（降级路径）
 #' @return data.frame：InChIKey / CID / Formula / SMILES / ExactMass / n_key
 #' @keywords internal
-#' @encoding UTF-8
+#' @export
 .fcm_chemicals_lookup <- function(con, keys, by_skeleton = FALSE) {
   keys <- unique(keys[!is.na(keys) & nzchar(keys)])
   if (length(keys) == 0) {
@@ -250,7 +250,7 @@
 #' @param con 数据库连接
 #' @return data.frame：name_norm / name_raw / InChIKey / source_table
 #' @keywords internal
-#' @encoding UTF-8
+#' @export
 .fcm_name_registry <- function(con) {
   specs <- list(
     list(tbl = "svhc",        col = "substance_name"),
@@ -290,7 +290,7 @@
 #' @param timeout 超时秒数
 #' @return 命名 list（CID/Formula/SMILES/InChIKey/ExactMass），失败时为全 NA
 #' @keywords internal
-#' @encoding UTF-8
+#' @export
 .fcm_pubchem_by_smiles <- function(smiles, timeout = 30) {
   empty <- list(CID = NA_character_, Formula = NA_character_, SMILES = NA_character_,
                 InChIKey = NA_character_, ExactMass = NA_character_)
@@ -322,7 +322,7 @@
 #' @param timeout 超时秒数
 #' @return 同 .fcm_pubchem_by_smiles()
 #' @keywords internal
-#' @encoding UTF-8
+#' @export
 .fcm_pubchem_by_name <- function(name, timeout = 30) {
   empty <- list(CID = NA_character_, Formula = NA_character_, SMILES = NA_character_,
                 InChIKey = NA_character_, ExactMass = NA_character_)
@@ -403,7 +403,7 @@
 #'   便于程序判断某行的身份可靠度；\code{identity_source} 为对应的中文说明。
 #'   \code{attr(,"prepare_report")} 为补全报告。
 #' @export
-#' @encoding UTF-8
+#' @export
 prepare_input <- function(data,
                           name_col = NULL, smiles_col = NULL,
                           cas_col = NULL, inchikey_col = NULL,
@@ -678,7 +678,7 @@ prepare_input <- function(data,
 #' @param x prepare_input() 的返回值
 #' @return 隐式返回报告对象
 #' @export
-#' @encoding UTF-8
+#' @export
 print_prepare_report <- function(x) {
   rep <- attr(x, "prepare_report")
   if (is.null(rep)) {

@@ -41,7 +41,7 @@
 #' @param db_path Optional custom path to database file (for testing)
 #' @return Data frame with update history records
 #' @export
-#' @encoding UTF-8
+#' @export
 get_update_history <- function(database_name = NULL, date_from = NULL, date_to = NULL, 
                               limit = 50, show_details = TRUE, db_path = NULL) {
   message("📚 Retrieving update history...")
@@ -133,7 +133,7 @@ get_update_history <- function(database_name = NULL, date_from = NULL, date_to =
 #'
 #' @param history Data frame with update history records
 #' @param show_details Whether to show detailed information
-#' @encoding UTF-8
+#' @export
 display_update_history <- function(history, show_details = TRUE) {
   message("\n📊 UPDATE HISTORY SUMMARY")
   message(paste(rep("=", 70), collapse = ""))
@@ -203,7 +203,7 @@ display_update_history <- function(history, show_details = TRUE) {
 #' @param con Database connection
 #' @param update_ids Vector of update history IDs to get details for
 #' @return Data frame with detailed change records
-#' @encoding UTF-8
+#' @export
 get_detailed_changes <- function(con, update_ids) {
   if (length(update_ids) == 0) {
     return(data.frame())
@@ -238,7 +238,7 @@ get_detailed_changes <- function(con, update_ids) {
 #' Formats and displays detailed change information.
 #'
 #' @param changes Data frame with detailed change records
-#' @encoding UTF-8
+#' @export
 display_detailed_changes <- function(changes) {
   if (nrow(changes) == 0) {
     message("📭 No detailed changes available")

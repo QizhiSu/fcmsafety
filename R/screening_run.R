@@ -79,7 +79,7 @@
 #' result <- run_screening(substances, online = TRUE)
 #' }
 #' @export
-#' @encoding UTF-8
+#' @export
 run_screening <- function(data, name_col = NULL, smiles_col = NULL,
                           cas_col = NULL, inchikey_col = NULL,
                           online = FALSE, delay = 0.35,

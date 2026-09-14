@@ -28,7 +28,6 @@
 #' @return 长度 1 的逻辑值：TRUE 表示本次请求应被丢弃。
 #' @seealso \code{\link{summarise_update_run}}
 #' @keywords internal
-#' @encoding UTF-8
 should_drop_run_request <- function(last_end, now = Sys.time(),
                                     grace_secs = 10) {
   ok_end <- inherits(last_end, "POSIXct") && length(last_end) == 1L &&
@@ -58,7 +57,6 @@ should_drop_run_request <- function(last_end, now = Sys.time(),
 #' @return 各库结果拼成的 data.frame；一个库都没出结果时返回 NULL。
 #' @seealso \code{\link{summarise_update_run}}
 #' @keywords internal
-#' @encoding UTF-8
 run_db_update_round <- function(dbs, runner, log = NULL, progress = NULL) {
   emit <- function(fn, ...) if (is.function(fn)) try(fn(...), silent = TRUE)
   if (length(dbs) == 0L) return(NULL)
@@ -100,7 +98,6 @@ run_db_update_round <- function(dbs, runner, log = NULL, progress = NULL) {
 #' @param x 字符向量。
 #' @return 翻译后的字符向量，未登记的原样保留。
 #' @keywords internal
-#' @encoding UTF-8
 translate_run_message <- function(x) {
   x <- as.character(x)
   x[is.na(x)] <- ""
@@ -144,9 +141,9 @@ translate_run_message <- function(x) {
 #'     \item{n_removals}{移除条目总数}
 #'     \item{headline}{一句话结论，可直接显示}
 #'   }
+#' @title Summarise a batch of database update results
 #' @seealso \code{\link{should_drop_run_request}}
 #' @keywords internal
-#' @encoding UTF-8
 summarise_update_run <- function(summary_df, max_auto_changes = 20L) {
   empty_table <- data.frame(
     database = character(0), status = character(0),

@@ -78,7 +78,7 @@ svhc_key_of <- function(df) {
 #' @param x 字符向量
 #' @return 字符向量，格式 dd/mm/yyyy
 #' @keywords internal
-#' @encoding UTF-8
+#' @export
 normalize_svhc_date <- function(x) {
   fmt <- function(d) sprintf("%02d/%02d/%04d",
                              as.integer(format(d, "%d", tz = "UTC")),
@@ -108,7 +108,7 @@ normalize_svhc_date <- function(x) {
 #' @param df 原始数据框
 #' @return 标准化后的 data.frame
 #' @keywords internal
-#' @encoding UTF-8
+#' @export
 normalize_svhc_df <- function(df) {
   if (is.null(df) || nrow(df) == 0) return(NULL)
   message("   Detected source columns: ", paste(names(df), collapse = " | "))
@@ -199,7 +199,7 @@ normalize_svhc_df <- function(df) {
 #' @param verbose 是否打印进度
 #' @return 补全后的 data.frame
 #' @keywords internal
-#' @encoding UTF-8
+#' @export
 enrich_svhc_meta <- function(df, db_path = NULL, delay = 0.35, verbose = TRUE) {
   if (is.null(df) || nrow(df) == 0) return(df)
   # 1) 先从库回填老物质（未变动的物质零请求）
@@ -220,7 +220,7 @@ enrich_svhc_meta <- function(df, db_path = NULL, delay = 0.35, verbose = TRUE) {
 #' @param path 文件完整路径
 #' @return 标准化后的 data.frame，或 NULL
 #' @keywords internal
-#' @encoding UTF-8
+#' @export
 read_svhc_source_file <- function(path) {
   raw <- NULL
   if (grepl("\\.csv$", path)) {
@@ -251,7 +251,7 @@ read_svhc_source_file <- function(path) {
 #' @param inst_dir inst 目录路径
 #' @return 标准化后的 data.frame
 #' @keywords internal
-#' @encoding UTF-8
+#' @export
 fetch_svhc_local <- function(inst_dir = file.path(getwd(), "inst")) {
   # candidate_list / svhc_new 是 ECHA 导出的候选清单；svhc_meta 是库内全量备份。
   # ECHA 导出可能因 WAF/分页被截断成不完整文件，因此这里读取所有候选文件，
@@ -293,7 +293,7 @@ fetch_svhc_local <- function(inst_dir = file.path(getwd(), "inst")) {
 #'   用于 check_manual_lists() 等场景精确消费某个手动放入的清单文件）
 #' @return 标准化后的 data.frame（蛇形列 + 化学列）
 #' @keywords internal
-#' @encoding UTF-8
+#' @export
 fetch_svhc_data <- function(source = c("auto", "local", "echa"),
                             inst_dir = file.path(getwd(), "inst"),
                             new_file = NULL) {
@@ -351,7 +351,7 @@ fetch_svhc_data <- function(source = c("auto", "local", "echa"),
 #' @param db_path 数据库路径（NULL 用默认）
 #' @return list(added, removed, modified, total_added, total_removed, total_modified)
 #' @keywords internal
-#' @encoding UTF-8
+#' @export
 diff_svhc_data <- function(new_df, db_path = NULL) {
   con <- get_db_connection(db_path)
   on.exit(DBI::dbDisconnect(con))
@@ -444,7 +444,7 @@ diff_svhc_data <- function(new_df, db_path = NULL) {
 #' @param backup 入库前是否备份数据库到 backups/
 #' @return 写入统计
 #' @keywords internal
-#' @encoding UTF-8
+#' @export
 write_svhc_to_db <- function(new_df, changes, db_path = NULL, backup = TRUE) {
   con <- get_db_connection(db_path)
   on.exit(DBI::dbDisconnect(con))
@@ -557,7 +557,7 @@ write_svhc_to_db <- function(new_df, changes, db_path = NULL, backup = TRUE) {
 #'   优先于 source 分发；用于 check_manual_lists() 精确消费手动放入的文件
 #' @return list(success, changes, db_write)
 #' @export
-#' @encoding UTF-8
+#' @export
 update_svhc_auto <- function(source = c("auto", "local", "echa"),
                              interactive = TRUE,
                              auto_apply = FALSE,

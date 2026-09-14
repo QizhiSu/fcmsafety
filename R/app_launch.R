@@ -52,7 +52,7 @@
 #' @param port Port number for the Shiny app (default: 3838)
 #' @param launch_browser Whether to launch browser automatically (default: TRUE)
 #' @export
-#' @encoding UTF-8
+#' @export
 launch_database_inspector <- function(port = 3838, launch_browser = TRUE) {
 
   # Check if required packages are available

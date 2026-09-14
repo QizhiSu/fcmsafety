@@ -26,14 +26,14 @@
 #'
 #' @return The destination path, invisibly.
 #' @name download_sources
-#' @encoding UTF-8
+#' @export
 NULL
 
 # ---- SVHC 候选清单（ECHA CHEM fullExport 端点） ------------------------------
 
 #' @rdname download_sources
 #' @export
-#' @encoding UTF-8
+#' @export
 download_svhc <- function(out = paste0(getwd(), "/inst/svhc.xlsx")) {
   # SVHC candidate list (ECHA CHEM, official).
   #
@@ -72,7 +72,7 @@ download_svhc <- function(out = paste0(getwd(), "/inst/svhc.xlsx")) {
 
 #' @rdname download_sources
 #' @export
-#' @encoding UTF-8
+#' @export
 download_clp <- function(out = paste0(getwd(), "/inst/clp.xlsx")) {
   # CLP regulation Table 3 of Annex VI (latest). ECHA publishes a single
   # official xlsx export on the page (annex_vi_clp_table_atpNN_en.xlsx).
@@ -256,7 +256,7 @@ download_clp_via_browser <- function(out) {
 
 #' @rdname download_sources
 #' @export
-#' @encoding UTF-8
+#' @export
 download_eu_sml <- function(out = paste0(getwd(), "/inst/eu10_2011.xlsx")) {
   # EU 10/2011 positive list (consolidated version), auto-discovered.
   #
@@ -682,7 +682,7 @@ parse_eu_sml_page <- function(html_text) {
 
 #' @rdname download_sources
 #' @export
-#' @encoding UTF-8
+#' @export
 download_iarc <- function(out = paste0(getwd(), "/inst/iarc.xlsx")) {
   # IARC List of Classifications. The data is embedded in the webpack bundle at
   # loc.app.js as an `agents` array (no server-side CSV/Excel endpoint). We fetch
