@@ -197,7 +197,259 @@ ensure_toxtree_jar <- function(jar_path = NULL, download = TRUE) {
 }
 
 
-# ---- CLI 调用：跑 classify / 归一输出 --------------------------------------
+# ---- rJava 路径：直接调用 Toxtree Java API ---------------------------------
+#
+# 背景：Toxtree 的 CLI 每次调用都要启动新的 JVM（约 5-10 秒），通过 rJava
+# 直接调用 Toxtree 的 Java API 可以复用同一个 JVM，每次调用只需 ~50-200 ms。
+#
+# 核心障碍与解法：
+#   - jnati (Toxtree 内部用于加载 JNI InChI 本地库) 不支持 macOS ARM64，
+#     但 rcdklibs 自带的 JNA InChI (io.github.dan2097.jnainchi) 是纯 Java，
+#     天然支持 ARM64。策略：按序加载所有 rcdklibs JAR（rcdklibs CDK 2.9 +
+#     JNA InChI）再加载 Toxtree JAR，Java 的单例模式会缓存第一个加载的
+#     InChIGeneratorFactory（来自 rcdklibs 的 JNA 版本）。
+#   - CDK 2.9 的 AtomContainer2 包级私有（package-private），且覆盖了
+#     IAtomContainer.setProperty(String, Object) 为 setProperty(Object, Object)。
+#     rJava 的 .jcall() 按静态声明类型分派，无法从 R 找到 (Object, Object)
+#     签名。解法：将 CDKHelper.class 编译到 inst/java/org/openscience/cdk/
+#     目录（与 AtomContainer2 同包），由该类代为调用 setProperty()。
+#   - rJava 将 jobjRef 识别为自己的类型，不能直接匹配 java.lang.Object。
+#     CDKHelper 的所有 public 方法内部 catch 异常并返回 null/false，
+#     R 端检查返回值即可判断成功失败。
+#
+# 调用约定（供 .java_run_cramer 调用）：
+#   - JAR 顺序：rcdklibs 所有 JAR → Toxtree 主 jar → ext/*.jar
+#   - CDKHelper 位于 inst/java/（通过 .onLoad 部署到缓存目录）
+#   - CramerRules 的 initialise(createDecisionResult(), verifyRules(mol, result))
+#     三步在 CDKHelper.runCramerRules() 内部完成
+
+#' Check if rJava is available and working (internal)
+#'
+#' Tests both that the rJava package is installed and that a JVM can be
+#' initialised. Returns a message describing why rJava is unavailable.
+#'
+#' @return NULL if rJava works, a character message describing the failure
+#'   if it does not.
+#' @noRd
+.javainit_check <- function() {
+  if (!requireNamespace("rJava", quietly = TRUE)) {
+    return("rJava package is not installed.")
+  }
+  library(rJava, warn.conflicts = FALSE)
+  jh <- tryCatch({
+    .jinit()
+    TRUE
+  }, error = function(e) {
+    paste0("JVM initialisation failed: ", conditionMessage(e))
+  })
+  if (isTRUE(jh)) NULL else jh
+}
+
+#' Find paths to all required JARs for the rJava path (internal)
+#'
+#' @return list with components:
+#'   \code{rcdklibs}   absolute paths of rcdklibs JARs
+#'   \code{toxtree}    absolute path of Toxtree main jar
+#'   \code{ext_jars}   absolute paths of Toxtree ext/ JARs
+#'   \code{cdkhelper}  absolute path to the compiled CDKHelper class root
+#' @noRd
+.java_get_jar_paths <- function() {
+  # rcdklibs: installed with the rcdklibs package
+  rcdklibs_cont <- system.file("cont", package = "rcdklibs")
+  if (!nzchar(rcdklibs_cont)) {
+    stop("rcdklibs package not found. Install it with: ",
+         "install.packages('rcdklibs')", call. = FALSE)
+  }
+  rcdklibs <- list.files(rcdklibs_cont, pattern = "\\.jar$",
+                          full.names = TRUE)
+
+  # Toxtree: reuse the same cached location as the CLI path
+  toxtree_jar <- ensure_toxtree_jar(download = FALSE)
+  toxtree_dir <- dirname(toxtree_jar)
+  ext_jars <- list.files(file.path(toxtree_dir, "ext"),
+                         pattern = "\\.jar$", full.names = TRUE)
+
+  # CDKHelper: deploy from inst/java/ to a persistent cache directory
+  # (inst/ is read-only from package, so copy to user cache)
+  cdkhelper_root <- .cdkhelper_deploy()
+
+  list(rcdklibs = rcdklibs,
+       toxtree = toxtree_jar,
+       ext_jars = ext_jars,
+       cdkhelper = cdkhelper_root)
+}
+
+#' Deploy CDKHelper.class from inst/java/ to user cache (internal)
+#'
+#' Copies the compiled CDKHelper.class hierarchy from the package's inst/java/
+#' directory to a persistent cache directory so it can be used by rJava.
+#' Safe to call repeatedly — only copies if the destination doesn't exist.
+#'
+#' @return Path to the root of the deployed CDKHelper tree (the parent of
+#'   the org/ directory).
+#' @noRd
+.cdkhelper_deploy <- function() {
+  src <- system.file("java", package = "fcmsafety")
+  if (!nzchar(src) || !dir.exists(src)) {
+    stop("inst/java/ not found in fcmsafety. ",
+         "CDKHelper.class must be compiled and placed in inst/java/org/openscience/cdk/ ",
+         "before loading the rJava path.", call. = FALSE)
+  }
+  cache_dir <- tools::R_user_dir("fcmsafety", "cache")
+  dst <- file.path(cache_dir, "cdkhelper")
+  if (!dir.exists(dst)) {
+    dir.create(dst, recursive = TRUE)
+    files <- list.files(src, full.names = TRUE, all.files = TRUE,
+                        include.dirs = TRUE, recursive = TRUE)
+    for (f in files) {
+      rel <- sub(paste0("^", src, "/?"), "", f)
+      dest <- file.path(dst, rel)
+      if (dir.exists(f)) {
+        dir.create(dest, showWarnings = FALSE, recursive = TRUE)
+      } else {
+        dir.create(dirname(dest), showWarnings = FALSE, recursive = TRUE)
+        file.copy(f, dest)
+      }
+    }
+  }
+  dst
+}
+
+#' Initialise rJava with all required JARs (internal, cached)
+#'
+#' Must be called before any other rJava calls. Loads JARs in the correct order
+#' (rcdklibs first, then Toxtree) to ensure the JNA-backed InChIGeneratorFactory
+#' from rcdklibs is cached before Toxtree's JNI-backed one is loaded.
+#'
+#' @param force_reinit If TRUE, re-initialise even if already done.
+#' @return NULL on success; stop on failure.
+#' @noRd
+.javainit <- function(force_reinit = FALSE) {
+  if (!identical(.javainit_state(), "uninitialised") && !force_reinit) {
+    return(invisible(NULL))
+  }
+  msg <- .javainit_check()
+  if (!is.null(msg)) {
+    stop("rJava is not available: ", msg, call. = FALSE)
+  }
+  .javainit_state("loading")
+  on.exit(.javainit_state("ready"), add = TRUE)
+
+  jars <- .java_get_jar_paths()
+
+  # Load rcdklibs first (JNA InChI factory is cached here)
+  for (jar in jars$rcdklibs) {
+    .jaddClassPath(jar)
+  }
+  # Load Toxtree after rcdklibs (jnati/JNI InChI factory will NOT override
+  # the cached JNA factory because the singleton pattern only uses the first call)
+  .jaddClassPath(jars$toxtree)
+  for (jar in jars$ext_jars) {
+    .jaddClassPath(jar)
+  }
+  # Load CDKHelper from the deployed cache copy
+  .jaddClassPath(jars$cdkhelper)
+
+  invisible(NULL)
+}
+
+# Simple state variable (not exported, no locked binding risk)
+.javainit_state <- local({
+  .state <- "uninitialised"
+  function(x) {
+    if (missing(x)) .state else .state <<- x
+  }
+})
+
+#' Run Cramer classification on a single SMILES string via rJava (internal)
+#'
+#' @param smiles Valid SMILES string
+#' @return Named list: \code{verified} (logical), \code{category} (character,
+#'   e.g. "Low (Class I)"), \code{inchi} (character or NULL),
+#'   \code{inchikey} (character or NULL), \code{error} (character or NULL)
+#' @noRd
+.java_run_cramer <- function(smiles) {
+  # Create builder fresh — DefaultChemObjectBuilder is a factory (cheap to create)
+  builder <- .jcast(
+    .jnew("org.openscience.cdk.DefaultChemObjectBuilder"),
+    "org/openscience/cdk/interfaces/IChemObjectBuilder"
+  )
+
+  # Parse SMILES
+  parser <- .jnew("org.openscience.cdk.smiles.SmilesParser", builder)
+  mol <- .jcall(parser, "Lorg/openscience/cdk/interfaces/IAtomContainer;",
+                 "parseSmiles", smiles)
+  if (is.null(mol)) {
+    return(list(verified = FALSE, category = NA_character_,
+                inchi = NULL, inchikey = NULL,
+                error = "SMILES could not be parsed"))
+  }
+
+  # Set MolFlags (the blocker that required CDKHelper)
+  ok <- .jcall("org.openscience.cdk.CDKHelper", "Z", "setMolFlags", mol)
+  if (!ok) {
+    return(list(verified = FALSE, category = NA_character_,
+                inchi = NULL, inchikey = NULL,
+                error = "CDKHelper.setMolFlags() failed"))
+  }
+
+  # Get InChI (optional, used downstream)
+  inchi <- .jcall("org.openscience.cdk.CDKHelper", "S", "getInChI", mol)
+  inchikey <- NULL
+  if (!is.null(inchi) && !is.na(inchi) && nzchar(inchi)) {
+    inchikey <- .jcall("org.openscience.cdk.CDKHelper", "S",
+                         "inchiToInchiKey", inchi)
+  }
+
+  # Run Cramer via CDKHelper
+  result <- .jcall("org.openscience.cdk.CDKHelper",
+                    "LtoxTree/core/IDecisionResult;",
+                    "runCramerRules", mol, builder)
+  if (is.null(result)) {
+    return(list(verified = FALSE, category = NA_character_,
+                inchi = inchi, inchikey = inchikey,
+                error = "CDKHelper.runCramerRules() returned NULL"))
+  }
+
+  # Extract category
+  category <- .jcall("org.openscience.cdk.CDKHelper", "S",
+                      "getCramerCategory", result)
+  # verified = the tree reached a category (not excluded by any rule)
+  verified <- !is.null(result) && !is.na(category) && nzchar(category)
+
+  list(verified = verified, category = category,
+       inchi = inchi, inchikey = inchikey, error = NULL)
+}
+
+#' Run Toxtree Cramer classification via rJava (internal)
+#'
+#' Fast path using the Toxtree Java API directly via rJava, bypassing the
+#' JVM cold-start overhead of the CLI path.
+#'
+#' @param smiles_vec Character vector of SMILES strings
+#' @param name_vec   Character vector of names (parallel to smiles_vec, may contain NA)
+#' @param cas_vec    Character vector of CAS numbers (parallel, may contain NA)
+#' @return data.frame with columns: NAME, CAS, SMILES, Cramer.rules, InChI, InChIKey
+#' @noRd
+.java_run_cramer_batch <- function(smiles_vec, name_vec, cas_vec) {
+  .javainit()
+
+  n <- length(smiles_vec)
+  results <- vector("list", n)
+  for (i in seq_len(n)) {
+    r <- .java_run_cramer(smiles_vec[i])
+    results[[i]] <- data.frame(
+      NAME = name_vec[i],
+      CAS  = cas_vec[i],
+      SMILES = smiles_vec[i],
+      Cramer.rules = if (isTRUE(r$verified)) r$category else NA_character_,
+      InChI = if (!is.null(r$inchi)) r$inchi else NA_character_,
+      InChIKey = if (!is.null(r$inchikey)) r$inchikey else NA_character_,
+      stringsAsFactors = FALSE, row.names = NULL
+    )
+  }
+  do.call(rbind, results)
+}
 
 #' Run Toxtree Cramer classification from R
 #'
@@ -210,12 +462,19 @@ ensure_toxtree_jar <- function(jar_path = NULL, download = TRUE) {
 #' （标准布局：主 jar 旁边有 \code{ext/} 模块目录）。需要本机安装 Java 8+
 #' （\url{https://adoptium.net}）。
 #'
+#' 默认优先使用 rJava 路径（直接调用 Toxtree Java API），速度比 CLI 快
+#' 约 20-50 倍（JVM 只启动一次，无需每次解析化合物时重新启动）。
+#' 如果 rJava 不可用或失败，自动回退到 CLI 路径。设置 \code{use_rjava = FALSE}
+#' 可强制使用 CLI 路径。
+#'
 #' @param data 你的数据表，必须包含 \code{SMILES} 列（通常是
 #'   \code{extract_cid()} / \code{extract_meta()} 之后的产物）。
 #' @param module Toxtree 插件的完整类名。默认经典 Cramer 规则
 #'   \code{"toxTree.tree.cramer.CramerRules"}（与 GUI 默认一致）；
 #'   可选 \code{"cramer2.CramerRulesWithExtensions"}（扩展版）、
 #'   \code{"toxtree.tree.cramer3.RevisedCramerDecisionTree"}（修订版）。
+#'   注意：rJava 路径目前仅支持 \code{"toxTree.tree.cramer.CramerRules"}；
+#'   其他模块会回退到 CLI 路径。
 #' @param output 结果文件路径，默认 \code{"toxtree_results.csv"}，
 #'   供 \code{assign_toxicity()} 直接消费。
 #' @param jar_path 可选，本机已有的 Toxtree 主 jar 路径；缺省时自动
@@ -223,6 +482,8 @@ ensure_toxtree_jar <- function(jar_path = NULL, download = TRUE) {
 #' @param cas_col CAS 列（列名或列序号），默认自动找 \code{"CAS"}。
 #' @param name_col 化学名列（列名或列序号），默认自动找 \code{"NAME"}。
 #' @param timeout 单次 CLI 运行的超时秒数，默认 600。
+#' @param use_rjava 是否优先使用 rJava 路径（默认 TRUE）。
+#'   设为 FALSE 强制使用 CLI 路径。
 #'
 #' @return 一个 data.frame：输入的 NAME / CAS / SMILES 加上归一化后的
 #'   \code{Cramer.rules} 结果列（及决策路径列）。同时写入 \code{output}。
@@ -236,7 +497,8 @@ run_toxtree <- function(data,
                         jar_path = NULL,
                         cas_col = "CAS",
                         name_col = "NAME",
-                        timeout = 600) {
+                        timeout = 600,
+                        use_rjava = TRUE) {
   message("Toxtree CLI runner (module: ", module, ")")
   message(paste(rep("-", 60), collapse = ""))
 
@@ -268,6 +530,20 @@ run_toxtree <- function(data,
   }
   name_idx <- resolve_col(name_col, c("NAME", "name", "Chemical.Name"))
   cas_idx <- resolve_col(cas_col, c("CAS", "cas", "CAS_retrieved"))
+
+  # --- rJava vs CLI 路径选择 ---
+  use_rjava_path <- isTRUE(use_rjava) &&
+    identical(module, "toxTree.tree.cramer.CramerRules") &&
+    requireNamespace("rJava", quietly = TRUE) &&
+    is.null(.javainit_check())
+
+  if (use_rjava_path) {
+    message("Using rJava path (direct Toxtree Java API, fast)")
+    message(paste(rep("-", 60), collapse = ""))
+    return(.run_toxtree_rjava(data, name_idx, cas_idx, output))
+  }
+
+  message("Using CLI path (java -jar Toxtree, fallback)")
 
   # --- jar 准备 ---
   jar <- ensure_toxtree_jar(jar_path)
@@ -376,6 +652,43 @@ run_toxtree <- function(data,
   message("Next step: assign_toxicity(data, toxtree_result = \"", output, "\")")
   message(paste(rep("-", 60), collapse = ""))
 
+  invisible(result)
+}
+
+#' Run Toxtree via rJava (fast path), return normalized data.frame (internal)
+#'
+#' Called by run_toxtree() when rJava is available and module == CramerRules.
+#' @noRd
+.run_toxtree_rjava <- function(data, name_idx, cas_idx, output) {
+  # --- input normalization (mirrors CLI path) ---
+  tox_input <- data.frame(
+    NAME   = if (is.na(name_idx)) NA_character_ else as.character(data[[name_idx]]),
+    CAS    = if (is.na(cas_idx))  NA_character_ else as.character(data[[cas_idx]]),
+    SMILES = as.character(data$SMILES),
+    stringsAsFactors = FALSE
+  )
+  n_before <- nrow(tox_input)
+  tox_input <- tox_input[!is.na(tox_input$SMILES) & nzchar(tox_input$SMILES), ,
+                          drop = FALSE]
+  message("Compounds to classify: ", nrow(tox_input),
+          " (dropped ", n_before - nrow(tox_input), " rows without SMILES)")
+  if (nrow(tox_input) == 0) {
+    stop("No compounds with a valid SMILES to classify.", call. = FALSE)
+  }
+
+  # --- run via rJava ---
+  message("Running Cramer classification via rJava...")
+  result <- .java_run_cramer_batch(
+    smiles_vec = tox_input$SMILES,
+    name_vec   = tox_input$NAME,
+    cas_vec    = tox_input$CAS
+  )
+
+  # --- write output ---
+  utils::write.csv(result, output, row.names = FALSE)
+  message("Results written to: ", normalizePath(output))
+  message("Next step: assign_toxicity(data, toxtree_result = \"", output, "\")")
+  message(paste(rep("-", 60), collapse = ""))
   invisible(result)
 }
 

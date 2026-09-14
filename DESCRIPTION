@@ -16,7 +16,7 @@ Description: The main function of this package is to evaluate the safety of
 License: MIT + file LICENSE
 Encoding: UTF-8
 Roxygen: list(markdown = TRUE)
-Imports: 
+Imports:
     base64enc,
     DBI,
     DT,
@@ -25,14 +25,14 @@ Imports:
     jsonlite,
     magrittr,
     openxlsx,
+    rJava,
     rio,
     RSQLite,
     rvest,
     shiny,
     stringr
-Suggests: 
+Suggests:
     rcdk,
-    rJava,
     testthat
 URL: https://github.com/QizhiSu/fcmsafety
 BugReports: https://github.com/QizhiSu/fcmsafety/issues

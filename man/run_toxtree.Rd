@@ -12,7 +12,8 @@ run_toxtree(
   jar_path = NULL,
   cas_col = "CAS",
   name_col = "NAME",
-  timeout = 600
+  timeout = 600,
+  use_rjava = TRUE
 )
 }
 \arguments{
@@ -22,7 +23,9 @@ run_toxtree(
 \item{module}{Toxtree 插件的完整类名。默认经典 Cramer 规则
 \code{"toxTree.tree.cramer.CramerRules"}（与 GUI 默认一致）；
 可选 \code{"cramer2.CramerRulesWithExtensions"}（扩展版）、
-\code{"toxtree.tree.cramer3.RevisedCramerDecisionTree"}（修订版）。}
+\code{"toxtree.tree.cramer3.RevisedCramerDecisionTree"}（修订版）。
+注意：rJava 路径目前仅支持 \code{"toxTree.tree.cramer.CramerRules"}；
+其他模块会回退到 CLI 路径。}
 
 \item{output}{结果文件路径，默认 \code{"toxtree_results.csv"}，
 供 \code{assign_toxicity()} 直接消费。}
@@ -35,6 +38,9 @@ run_toxtree(
 \item{name_col}{化学名列（列名或列序号），默认自动找 \code{"NAME"}。}
 
 \item{timeout}{单次 CLI 运行的超时秒数，默认 600。}
+
+\item{use_rjava}{是否优先使用 rJava 路径（默认 TRUE）。
+设为 FALSE 强制使用 CLI 路径。}
 }
 \value{
 一个 data.frame：输入的 NAME / CAS / SMILES 加上归一化后的
@@ -50,4 +56,9 @@ run_toxtree(
 之后复用缓存。也可以用 \code{jar_path} 指向本机已有的 Toxtree 安装
 （标准布局：主 jar 旁边有 \code{ext/} 模块目录）。需要本机安装 Java 8+
 （\url{https://adoptium.net}）。
+
+默认优先使用 rJava 路径（直接调用 Toxtree Java API），速度比 CLI 快
+约 20-50 倍（JVM 只启动一次，无需每次解析化合物时重新启动）。
+如果 rJava 不可用或失败，自动回退到 CLI 路径。设置 \code{use_rjava = FALSE}
+可强制使用 CLI 路径。
 }
