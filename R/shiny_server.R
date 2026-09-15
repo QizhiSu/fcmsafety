@@ -1344,7 +1344,7 @@ fcm_app_server <- function(input, output, session) {
     # 设计取舍：主数据表是"看库"的地方，筛查结果不往里灌——弹窗给
     # 等级分布与命中概览，完整逐行结果（含 Toxic_level_basis）在导出的报告里。
     # Toxtree 结果文件缺失时会现场自动运行（需 Java）；失败已降级为
-    # 仅法规匹配（见 screening.R），GUI 不会因此白跑。
+    # 仅 assign_toxicity.R 中的函数，GUI 不会因此白跑。
     # ============================================================
     observeEvent(input$db_btn_screen, {
       shiny::showModal(shiny::modalDialog(

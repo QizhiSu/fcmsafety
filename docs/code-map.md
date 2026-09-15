@@ -13,7 +13,7 @@
 
 | 我想… | 调这个 | 在 |
 |---|---|---|
-| **把一批物质（含 InChIKey）跑完匹配 + 定级 + 报告** | **`assign_toxicity()`** | **`screening.R`** |
+| **把一批物质（含 InChIKey）跑完匹配 + 定级 + 报告** | **`assign_toxicity()`** | **`assign_toxicity.R`** |
 | **更新法规库**（一键或按库） | **`update_database_auto()`** / `update_*_auto()` | `update_other_dbs.R` |
 | **看库里现在有什么 / GUI 筛查** | `launch_database_inspector()` | `shiny_launch.R` → `shiny_ui.R` + `shiny_server.R` |
 
@@ -48,7 +48,7 @@ res <- assign_toxicity(data, output_file = "report.xlsx")
         ▼
    inst/fcmsafety.db（SQLite）
         │
-        │  screening.R               按 InChIKey 匹配 + 定级 I–V
+        │  assign_toxicity.R        按 InChIKey 匹配 + 定级 I–V
         ▼
    report_export.R  →  report.xlsx
 ```
@@ -69,7 +69,7 @@ res <- assign_toxicity(data, output_file = "report.xlsx")
 | `update_svhc.R` | ~700 | SVHC 单独一条线（主键三级回退，不迁公共流水线） | `update_svhc_auto()` |
 | `update_pipeline.R` | ~1800 | 公共流水线：回填 / 补新增 / diff / 入库 / 变更明细 | `run_incremental_update()` |
 | `database.R` | ~1240 | 底座：连接/建表/迁移/装载 | `get_db_connection()` `migrate_xlsx_to_sqlite()` |
-| `screening.R` | ~1160 | **核心**：查库匹配 + 定级 I–V + 组汇总 | `assign_toxicity()` `compute_toxicity_levels()` |
+| `assign_toxicity.R` | ~1160 | **核心**：查库匹配 + 定级 I–V + 组汇总 | `assign_toxicity()` `compute_toxicity_levels()` |
 | `report_export.R` | ~250 | 导出带样式的 Excel 报告 | `export_toxicity_report()` |
 
 ### 筛查辅助
@@ -109,12 +109,12 @@ res <- assign_toxicity(data, output_file = "report.xlsx")
 
 | 想做的事 | 改哪 | 注意 |
 |---|---|---|
-| 调整毒性等级规则（如 SML 阈值） | `screening.R` 的 `compute_toxicity_levels()` 与顶部 `.cmr_*_h_codes` | 纯函数 |
+| 调整毒性等级规则（如 SML 阈值） | `assign_toxicity.R` 的 `compute_toxicity_levels()` 与顶部 `.cmr_*_h_codes` | 纯函数 |
 | 报告加一列 / 换配色 | `report_export.R` 的样式区 | 只动 `.level_fills` / `.style_table()` |
 | 加一个新法规库 | ① `inst/fcmsafety_schema.sql` 加表 ② `download_sources.R` 加抓取 ③ `update_dbs.R` 的 `DB_SOURCES` 注册表加一条 ④ `incremental_update.R` 的 `db_col_candidates` 登记列名差异 | ③④ 漏了会静默不生效 |
 | 某官网抓不到了 | `download_sources.R` 对应函数 | 先读函数头注释（回退顺序在里面） |
 | Cramer 分级不对 | `toxtree.R` | **改完必须重装包** |
-| 查为什么某物质"查不到" | `screening.R` 的 `query_*_data()` + Issues 表 | 先看报告的 Issues sheet |
+| 查为什么某物质"查不到" | `assign_toxicity.R` 的 `query_*_data()` + Issues 表 | 先看报告的 Issues sheet |
 | Shiny 界面加个按钮 | UI 在 `shiny_ui.R`，逻辑在 `shiny_server.R` | 文案要同时进 i18n 文案表 |
 | 报告说"数据库连接失败" | `database.R` 的 `.resolve_db_path()` | **必须在项目根目录跑** |
 

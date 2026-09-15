@@ -6,8 +6,7 @@ File names now tell the pipeline story instead of mixing three unrelated
 - update family: update_dbs.R (was update_other_dbs.R), update_svhc.R
   (was auto_update_svhc.R), update_pipeline.R (was incremental_update.R),
   update_guard.R (was run_guard.R); update_audit.R unchanged
-- screening: screening.R (was direct_sql_toxicity.R - the name was a
-  legacy of the xlsx-to-SQLite migration)
+- screening: assign_toxicity.R (was screening.R - renamed to reflect the main exported function)
 - support: database.R (was sqlite_database_manager.R),
   report_export.R (was toxicity_report_export.R), main.R (was app_main.R),
   manual_lists.R (was app_manual.R)

@@ -18,7 +18,7 @@
 #
 # 本文件不负责：增量比对（见 update_pipeline.R）、各法规源抓取
 # （见 update_dbs.R / update_svhc.R）、毒性定级
-# （见 screening.R）。
+# （见 assign_toxicity.R）。
 # =============================================================================
 
 #' SQLite Database Manager for FCMSafety
