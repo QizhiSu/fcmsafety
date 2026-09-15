@@ -26,7 +26,6 @@
 #'
 #' @return The destination path, invisibly.
 #' @name download_sources
-#' @export
 NULL
 
 # ---- SVHC 候选清单（ECHA CHEM fullExport 端点） ------------------------------

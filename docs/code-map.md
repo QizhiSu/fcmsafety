@@ -77,7 +77,6 @@ res <- assign_toxicity(data, output_file = "report.xlsx")
 | 文件 | 行数 | 职责 |
 |---|---:|---|
 | `toxtree.R` | ~810 | Toxtree：rJava 快速路径 + CLI 回退 + jar 按需下载 |
-| `iarc_see_aliases.R` | ~370 | IARC (see X) 别名解析（组条目引擎删除后的自洽保留部分） |
 
 ### GUI（三个文件）
 
@@ -130,8 +129,8 @@ res <- assign_toxicity(data, output_file = "report.xlsx")
    （I 级的唯一来源是 `1.8 < SML <= 60`）。
 3. **查询失败必须可见。** `query_*()` 出错时挂 `attr(x, "query_error")`，
    由上层收进 Issues 表。
-4. **组条目判定引擎已移除（2026-09-15）**，IARC (see X) 别名解析保留在
-   `iarc_see_aliases.R`；判定引擎的历史版本在 wip/consolidation-draft 与 git 历史。
+4. **IARC 组条目判定引擎与 (see X) 别名解析已整体删除（2026-09-15）**，
+   历史版本在 wip/consolidation-draft 与 git 历史。
 5. **元素层只是必要条件。** 元素命中不等于归属确认，护栏必须保留。
 6. **新增 roxygen 块以 `#' @encoding UTF-8` 结尾，且必须在块尾**，
    护栏是 `tests/testthat/test-rd-docs.R`。

@@ -243,30 +243,6 @@ assign_toxicity <- function(data, toxtree_result = "toxtree_results.csv",
   iarc_summary <- summarise_iarc_groups(iarc_data)
   message("   IARC: ", nrow(iarc_summary), " compounds matched")
 
-  # IARC 的 "(see X)" 交叉引用：源表里这些行的 group_classification 是空的，
-  # 分级挂在 X 上（如 Gallium arsenide 的评价挂在 "Arsenic and inorganic
-  # arsenic compounds" 组 1 下）。此前没有代码读它，查砷化镓会返回"无证据"。
-  # 只填空缺：同键兄弟行已经给出分组的不动，理由见 apply_iarc_see_aliases()。
-  iarc_alias <- tryCatch(
-    query_iarc_see_alias_map(db_path),
-    error = function(e) {
-      # iarc 表整体缺失时不必重复登记 —— 上面的 table_counts 已把 iarc 记成
-      # missing，这里再报一条只会让 Issues 表出现两条同一原因的记录。
-      if (!grepl("no such table", conditionMessage(e), ignore.case = TRUE)) {
-        note_issue("iarc_alias", "failed", NA_integer_, conditionMessage(e))
-      }
-      NULL
-    }
-  )
-  if (!is.null(iarc_alias) && nrow(iarc_alias) > 0) {
-    iarc_alias <- iarc_alias[iarc_alias$InChIKey %in% inchikeys, , drop = FALSE]
-  }
-  iarc_summary <- apply_iarc_see_aliases(iarc_summary, iarc_alias)
-  n_alias <- attr(iarc_summary, "see_alias_added")
-  if (!is.null(n_alias) && n_alias > 0) {
-    message("   IARC (see X) aliases resolved: ", n_alias, " compound(s)")
-  }
-
   # EU SML database
   eu_sml_data <- query_eu_sml_data(con, inchikey_list)
   register_query("eu_sml", eu_sml_data, nrow(eu_sml_data))

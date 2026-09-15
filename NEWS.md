@@ -7,7 +7,7 @@ File names now tell the pipeline story instead of mixing three unrelated
   (was auto_update_svhc.R), update_pipeline.R (was incremental_update.R),
   update_guard.R (was run_guard.R); update_audit.R unchanged
 - screening: screening.R (was direct_sql_toxicity.R - the name was a
-  legacy of the xlsx-to-SQLite migration), iarc_see_aliases.R unchanged
+  legacy of the xlsx-to-SQLite migration)
 - support: database.R (was sqlite_database_manager.R),
   report_export.R (was toxicity_report_export.R), main.R (was app_main.R),
   manual_lists.R (was app_manual.R)
@@ -16,16 +16,17 @@ File names now tell the pipeline story instead of mixing three unrelated
 Pure renames - no code moved or changed; update_history ledger labels for
 new writes use the new file names.
 
-## Remove the group-entry matching subsystem
+## Remove the group-entry matching subsystem and IARC aliases
 - group_membership.R (1,621 lines: element judges, UVCB matching, the
   screen_* engine and its registry) is deleted, along with
   assign_group_membership() / assign_group_membership_table() exports and
   the group_membership / Group_hits / Group_IARC / Group_review surface of
   assign_toxicity(). The subsystem was default-off and not part of the
-  owner's core flow. The IARC (see X) alias resolution that
-  assign_toxicity() uses unconditionally is kept in iarc_see_aliases.R.
-  ADRs 0009/0010 kept as historical records; the engine lives on the
-  wip/consolidation-draft branch and in git history.
+  owner's core flow.
+- iarc_see_aliases.R (~370 lines: IARC (see X) cross-reference resolution,
+  element extraction, group registry) is also deleted as it provided no
+  practical value. ADRs 0009/0010 deleted.
+  Historical versions on wip/consolidation-draft branch and in git history.
 
 ## PubChem metadata extraction returns to labtools; run_screening removed
 - prepare_input() (offline CDK InChIKey derivation, ~700 lines plus the
