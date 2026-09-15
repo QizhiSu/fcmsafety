@@ -230,7 +230,7 @@ download_clp_via_browser <- function(out) {
     stop("node not found (looked at FCMSAFETY_NODE_BIN, PATH, and the bundled ",
          "default path). Install Node.js or set FCMSAFETY_NODE_BIN.")
   }
-  script <- file.path(getwd(), "tools", "echacl_download.cjs")
+  script <- system.file("echacl_download.cjs", package = "fcmsafety")
   if (!file.exists(script)) {
     stop("browser download script not found: ", script)
   }

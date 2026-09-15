@@ -8,7 +8,7 @@
 run_toxtree(
   data,
   module = "toxTree.tree.cramer.CramerRules",
-  output = "toxtree_results.csv",
+  output = NULL,
   jar_path = NULL,
   cas_col = "CAS",
   name_col = "NAME",
@@ -27,8 +27,8 @@ run_toxtree(
 注意：rJava 路径目前仅支持 \code{"toxTree.tree.cramer.CramerRules"}；
 其他模块会回退到 CLI 路径。}
 
-\item{output}{结果文件路径，默认 \code{"toxtree_results.csv"}，
-供 \code{assign_toxicity()} 直接消费。}
+\item{output}{结果文件路径（可选），默认 NULL（不写文件）。
+设为文件路径可将结果保存到 CSV。}
 
 \item{jar_path}{可选，本机已有的 Toxtree 主 jar 路径；缺省时自动
 查找缓存并按需下载。}
@@ -44,12 +44,11 @@ run_toxtree(
 }
 \value{
 一个 data.frame：输入的 NAME / CAS / SMILES 加上归一化后的
-\code{Cramer.rules} 结果列（及决策路径列）。同时写入 \code{output}。
+\code{Cramer.rules} 结果列。同时写入 \code{output}（如果指定）。
 }
 \description{
 在 R 内直接调用 Toxtree 的无界面（headless）模式完成 Cramer 分类，
-不再需要手动打开 Toxtree GUI 做批处理。产出与 GUI 工作流同构的
-\code{toxtree_results.csv}，可直接传给 \code{\link{assign_toxicity}()}。
+不再需要手动打开 Toxtree GUI 做批处理。
 }
 \details{
 首次运行会自动从 SourceForge 下载 Toxtree（约 81 MB，一次性），

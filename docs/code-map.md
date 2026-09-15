@@ -40,11 +40,11 @@ res <- assign_toxicity(data, output_file = "report.xlsx")
         ▼
    inst/*.xlsx
         │
-        │  update_other_dbs.R        CMR / CMR_suspect / IARC / EU_SML 调度
-        │  update_svhc.R             SVHC 单独一条线（主键三级回退）
-        ▼
-   incremental_update.R  ←── 四个库共用的公共流水线
-        │   对齐库表列 → 回填老物质 → 只对新增查 PubChem → diff → 确认 → 入库
+        │  update_dbs.R              单一文件整合全部更新链路：
+        │    DB_SOURCES 注册表       (CMR / IARC / EU_SML / SVHC)
+        │    标准化函数              (normalize_cmr_df / normalize_svhc_df ...)
+        │    通用流水线              (run_incremental_update)
+        │    SVHC 专用流水线         (update_svhc_auto)
         ▼
    inst/fcmsafety.db（SQLite）
         │
@@ -52,9 +52,6 @@ res <- assign_toxicity(data, output_file = "report.xlsx")
         ▼
    report_export.R  →  report.xlsx
 ```
-
-**记住一件事**：`update_pipeline.R` 是四个库共用的。改它的行为会同时
-影响 SVHC 之外的三个库 —— 这是本仓库最容易"改一处炸一片"的地方。
 
 ---
 
@@ -65,9 +62,7 @@ res <- assign_toxicity(data, output_file = "report.xlsx")
 | 文件 | 行数 | 职责 | 关键函数 |
 |---|---:|---|---|
 | `download_sources.R` | ~840 | 抓官方原始数据存 xlsx。**最易失效**（官网改版就废） | `download_svhc` `download_clp` `download_iarc` `download_eu_sml` |
-| `update_dbs.R` | ~870 | 四条更新线 + `DB_SOURCES` 注册表 + 总调度 | `update_database_auto()` `update_source_auto()` |
-| `update_svhc.R` | ~700 | SVHC 单独一条线（主键三级回退，不迁公共流水线） | `update_svhc_auto()` |
-| `update_pipeline.R` | ~1800 | 公共流水线：回填 / 补新增 / diff / 入库 / 变更明细 | `run_incremental_update()` |
+| `update_dbs.R` | ~3370 | 单一文件整合三条更新链路：DB_SOURCES 注册表 + CMR/IARC/EU_SML 标准化与取数 + 通用增量流水线 + SVHC 专用流水线 | `update_database_auto()` `update_source_auto()` `run_incremental_update()` `update_svhc_auto()` |
 | `database.R` | ~1240 | 底座：连接/建表/迁移/装载 | `get_db_connection()` `migrate_xlsx_to_sqlite()` |
 | `assign_toxicity.R` | ~1160 | **核心**：查库匹配 + 定级 I–V + 组汇总 | `assign_toxicity()` `compute_toxicity_levels()` |
 | `report_export.R` | ~250 | 导出带样式的 Excel 报告 | `export_toxicity_report()` |
@@ -111,7 +106,7 @@ res <- assign_toxicity(data, output_file = "report.xlsx")
 |---|---|---|
 | 调整毒性等级规则（如 SML 阈值） | `assign_toxicity.R` 的 `compute_toxicity_levels()` 与顶部 `.cmr_*_h_codes` | 纯函数 |
 | 报告加一列 / 换配色 | `report_export.R` 的样式区 | 只动 `.level_fills` / `.style_table()` |
-| 加一个新法规库 | ① `inst/fcmsafety_schema.sql` 加表 ② `download_sources.R` 加抓取 ③ `update_dbs.R` 的 `DB_SOURCES` 注册表加一条 ④ `incremental_update.R` 的 `db_col_candidates` 登记列名差异 | ③④ 漏了会静默不生效 |
+| 加一个新法规库 | ① `inst/fcmsafety_schema.sql` 加表 ② `download_sources.R` 加抓取 ③ `update_dbs.R` 的 `DB_SOURCES` 注册表加一条 ④ `db_col_candidates` 登记列名差异（在同一文件内） | ③④ 漏了会静默不生效 |
 | 某官网抓不到了 | `download_sources.R` 对应函数 | 先读函数头注释（回退顺序在里面） |
 | Cramer 分级不对 | `toxtree.R` | **改完必须重装包** |
 | 查为什么某物质"查不到" | `assign_toxicity.R` 的 `query_*_data()` + Issues 表 | 先看报告的 Issues sheet |
@@ -149,15 +144,15 @@ res <- assign_toxicity(data, output_file = "report.xlsx")
 
 ```bash
 # 测试（270 个用例）
-NOT_CRAN=true Rscript tools/run_tests.R
+NOT_CRAN=true Rscript -e "pkgload::load_all('.'); testthat::test_dir('tests/testthat')"
 
 # R CMD check（只做静态检查，examples/tests 显示 SKIPPED 是正常的）
-LC_ALL=en_US.UTF-8 NOT_CRAN=true Rscript tools/run_check.R
+LC_ALL=en_US.UTF-8 R CMD check .
 
-# 分区注释没插进 roxygen 块（改完注释跑一下，很快）
-Rscript tools/check_section_markers.R
+# 检查分区注释是否插进 roxygen 块
+Rscript -e "source('R/check_section_markers.R')"   # 如果有这个脚本的话
 ```
 
-**判读标准**：`run_tests.R` 要 0 failed / 0 error；`run_check.R` 允许 1 个
+**判读标准**：测试要 0 failed / 0 error；`R CMD check` 允许 1 个
 WARNING（`code files for non-ASCII characters`，中文常量，接受不修），
 **不允许 ERROR**。
