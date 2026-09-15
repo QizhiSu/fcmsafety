@@ -87,16 +87,18 @@ launch_database_inspector <- function(port = 3838, launch_browser = TRUE) {
   url <- sprintf("http://127.0.0.1:%d", port)
 
   if (isTRUE(launch_browser)) {
-    # Run app in the background and open the browser once the port is
-    # accepting connections. If we can't poll the port, fall back to a
-    # short delay + shell.exec().
-    app_thread <- shiny::runApp(list(ui = ui, server = server),
-                                port = port,
-                                launch.browser = FALSE,
-                                quiet = FALSE)
+    # Start app in background first so we can open browser immediately.
+    # runApp() blocks until the app quits, so we must not await it.
+    app_pid <- callr::r_bg(
+      function(ui, server, port) {
+        shiny::runApp(list(ui = ui, server = server),
+                      port = port, launch.browser = FALSE, host = "127.0.0.1")
+      },
+      args = list(ui = ui, server = server, port = port),
+      package = TRUE, supervise = TRUE
+    )
 
-    # Wait until the port is listening (max ~10s).
-    port_ready <- FALSE
+    # Poll until the port is ready (max ~10s).
     for (i in seq_len(50)) {
       Sys.sleep(0.2)
       con <- try(suppressWarnings(socketConnection("127.0.0.1", port,
@@ -105,30 +107,19 @@ launch_database_inspector <- function(port = 3838, launch_browser = TRUE) {
                  silent = TRUE)
       if (!inherits(con, "try-error") && !is.null(con)) {
         close(con)
-        port_ready <- TRUE
         break
       }
     }
 
-    if (!port_ready) {
-      # Give Shiny a tiny bit more time even if our probe missed it.
-      Sys.sleep(1)
-    }
-
-    # Open the URL in the default browser using the correct command
-    # for each platform.  shell.exec() only works on Windows.
-    opened <- switch(Sys.info()[["sysname"]],
-      "Darwin"   = try(system2("open", url, wait = FALSE), silent = TRUE),
-      "Windows"  = try(shell.exec(url), silent = TRUE),
-      "Linux"    = try(system2("xdg-open", url, wait = FALSE), silent = TRUE),
-      # Fallback to shiny's browseURL for any other platform
-      try(utils::browseURL(url), silent = TRUE)
+    # Open URL in default browser (platform-specific).
+    switch(Sys.info()[["sysname"]],
+      "Darwin"   = system2("open", url, wait = FALSE),
+      "Windows"  = shell.exec(url),
+      "Linux"    = system2("xdg-open", url, wait = FALSE),
+      utils::browseURL(url)
     )
-    if (inherits(opened, "try-error") || identical(opened, 1L)) {
-      # Last-resort fallback: utils::browseURL (works when "browser" is set).
-      try(utils::browseURL(url), silent = TRUE)
-    }
-    return(invisible(app_thread))
+
+    return(invisible(app_pid))
   }
 
   shiny::runApp(list(ui = ui, server = server),
