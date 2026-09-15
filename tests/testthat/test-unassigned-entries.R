@@ -42,12 +42,12 @@ sample_dropped <- function() {
   )
 }
 
-test_that("业务表的 InChIKey 非空约束会让整批写入一起回滚（问题本身）", {
+test_that("单表设计：InChIKey 为 NULL 的行也能正常写入（完整数据存储）", {
   db <- make_bare_db()
   con <- fcmsafety:::get_db_connection(db)
   on.exit(DBI::dbDisconnect(con), add = TRUE)
 
-  # 有键的那行本身是合法的，键在 chemicals 里存在（外键能过）
+  # 有键的行和无键的行都能写入（单一表设计）
   DBI::dbExecute(con, "INSERT INTO chemicals (InChIKey) VALUES ('AAA')")
 
   batch <- data.frame(
@@ -57,11 +57,10 @@ test_that("业务表的 InChIKey 非空约束会让整批写入一起回滚（�
     stringsAsFactors = FALSE
   )
 
-  res <- try(DBI::dbWithTransaction(con, DBI::dbAppendTable(con, "iarc", batch)),
-             silent = TRUE)
-  expect_s3_class(res, "try-error")
-  # 整批没了：合法的那一行也一起被回滚
-  expect_equal(DBI::dbGetQuery(con, "SELECT COUNT(*) n FROM iarc")$n, 0L)
+  # 现在 NULL InChIKey 允许写入，不会报错
+  expect_no_error(DBI::dbWithTransaction(con, DBI::dbAppendTable(con, "iarc", batch)))
+  # 两行都进了：合法行 + 无键行（完整数据）
+  expect_equal(DBI::dbGetQuery(con, "SELECT COUNT(*) n FROM iarc")$n, 2L)
 })
 
 test_that("split_unassignable 摘掉拿不到键的行，并说清为什么", {

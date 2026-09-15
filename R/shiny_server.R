@@ -697,12 +697,12 @@ fcm_app_server <- function(input, output, session) {
         # 靠 InChIKey 关联）。主表有 InChIKey 列时 LEFT JOIN chemicals 把 SMILES 带进
         # 展示数据；chemicals 的 InChIKey 唯一，不会产生行膨胀。无 InChIKey 列的主表
         # （如 china_sml / eu_sml_group）保持原样，这些库本就没有结构式数据。
+        #
+        # Check if table has InChIKey column for join and filtering
         table_cols <- DBI::dbListFields(values$db_connection, table_name)
         has_inchikey <- "InChIKey" %in% table_cols
 
         # Decide whether to push filtering down to SQLite for large tables
-        total_rows <- DBI::dbGetQuery(values$db_connection,
-                                       paste("SELECT COUNT(*) AS n FROM", table_name))$n[1]
         use_sql_filter <- total_rows >= 5000 &&
                           (values$inchikey_filter_active ||
                            (!is.null(values$search_term) && values$search_term != ""))

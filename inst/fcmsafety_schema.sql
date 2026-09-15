@@ -32,34 +32,11 @@ CREATE INDEX idx_chemicals_formula ON chemicals(Formula);
 -- 2. _filtered: InChIKey-filtered data (for toxicity assignment)
 
 -- SVHC (Substances of Very High Concern) Database
--- Raw table: ALL original data from XLSX
-CREATE TABLE svhc_raw (
-    id INTEGER PRIMARY KEY AUTOINCREMENT,
-    substance_name TEXT,
-    description TEXT,
-    ec_no TEXT,
-    cas_no TEXT,
-    reason_for_inclusion TEXT,
-    date_of_inclusion TEXT,
-    decision TEXT,
-    iuclid_dataset TEXT,
-    support_document TEXT,
-    response_to_comments TEXT,
-    remarks TEXT,
-    CID INTEGER,
-    Formula TEXT,
-    SMILES TEXT,
-    InChIKey TEXT,  -- Can be NULL
-    IUPACName TEXT,
-    ExactMass REAL,
-    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
-    updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
-);
-
--- Filtered table: Only records with valid InChIKey (for toxicity assignment)
+-- Complete data including substances without InChIKey
+-- Query with WHERE InChIKey IS NOT NULL for toxicity matching
 CREATE TABLE svhc (
     id INTEGER PRIMARY KEY AUTOINCREMENT,
-    InChIKey TEXT NOT NULL,
+    InChIKey TEXT,
     substance_name TEXT,
     description TEXT,
     ec_no TEXT,
@@ -72,46 +49,14 @@ CREATE TABLE svhc (
     response_to_comments TEXT,
     remarks TEXT,
     created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
-    updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
-    FOREIGN KEY (InChIKey) REFERENCES chemicals(InChIKey)
+    updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
 );
 
 -- CMR (Carcinogenic, Mutagenic, Reprotoxic) Database
--- Raw table: ALL original data from XLSX
-CREATE TABLE cmr_raw (
-    id INTEGER PRIMARY KEY AUTOINCREMENT,
-    index_no TEXT,
-    international_chemical_identification TEXT,
-    ec_no TEXT,
-    cas_no TEXT,
-    hazard_class_and_category_codes TEXT,
-    hazard_statement_codes TEXT,
-    -- pictogram / signal_word_codes 与 specific_conc_limits / m_factors 在 CLP 官方
-    -- 导出里各是一列（"Pictogram, Signal Word Code(s)"、"Specific Conc. Limits,
-    -- M-factors"），必须拆开落库；旧迁移按子串取列，整串同时写进了两对列。
-    -- 拆法见 R/update_other_dbs.R 的 split_clp_label_cell() / split_clp_limit_cell()。
-    pictogram TEXT,
-    signal_word_codes TEXT,
-    hazard_statement_codes_alt TEXT,
-    suppl_hazard_statement_codes TEXT,
-    specific_conc_limits TEXT,
-    m_factors TEXT,
-    notes TEXT,
-    atp_inserted_updated TEXT,
-    CID INTEGER,
-    Formula TEXT,
-    SMILES TEXT,
-    InChIKey TEXT,  -- Can be NULL
-    IUPACName TEXT,
-    ExactMass REAL,
-    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
-    updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
-);
-
--- Filtered table: Only records with valid InChIKey (for toxicity assignment)
+-- Complete data including substances without InChIKey
 CREATE TABLE cmr (
     id INTEGER PRIMARY KEY AUTOINCREMENT,
-    InChIKey TEXT NOT NULL,
+    InChIKey TEXT,
     index_no TEXT,
     international_chemical_identification TEXT,
     ec_no TEXT,
@@ -129,14 +74,14 @@ CREATE TABLE cmr (
     notes TEXT,
     atp_inserted_updated TEXT,
     created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
-    updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
-    FOREIGN KEY (InChIKey) REFERENCES chemicals(InChIKey)
+    updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
 );
 
 -- CMR Suspect Database
+-- Complete data including substances without InChIKey
 CREATE TABLE cmr_suspect (
     id INTEGER PRIMARY KEY AUTOINCREMENT,
-    InChIKey TEXT NOT NULL,
+    InChIKey TEXT,
     -- CLP 的官方标识（如 613-166-00-X），也是增量 diff 的主键。原先这张表没有
     -- 这一列，只能拿 substance_name 当主键 —— 而物质名是自由文本，上游改一个
     -- 连字符/逗号/省略号，就会被判成"删一条 + 加一条"。实测 45 行 removed 里
@@ -150,14 +95,14 @@ CREATE TABLE cmr_suspect (
     source TEXT,
     notes TEXT,
     created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
-    updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
-    FOREIGN KEY (InChIKey) REFERENCES chemicals(InChIKey)
+    updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
 );
 
 -- IARC (International Agency for Research on Cancer) Database
+-- Complete data including substances without InChIKey
 CREATE TABLE iarc (
     id INTEGER PRIMARY KEY AUTOINCREMENT,
-    InChIKey TEXT NOT NULL,
+    InChIKey TEXT,
     cas_no TEXT,
     agent TEXT,
     group_classification TEXT,
@@ -172,14 +117,14 @@ CREATE TABLE iarc (
     evaluation_year INTEGER,
     additional_information TEXT,
     created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
-    updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
-    FOREIGN KEY (InChIKey) REFERENCES chemicals(InChIKey)
+    updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
 );
 
 -- EU SML (Specific Migration Limits) Database
+-- Complete data including substances without InChIKey
 CREATE TABLE eu_sml (
     id INTEGER PRIMARY KEY AUTOINCREMENT,
-    InChIKey TEXT NOT NULL,
+    InChIKey TEXT,
     fcm_substance_no TEXT,
     ref_no TEXT,
     cas_no TEXT,
@@ -192,14 +137,10 @@ CREATE TABLE eu_sml (
     restrictions_and_specifications TEXT,
     notes_on_verification TEXT,
     created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
-    updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
-    FOREIGN KEY (InChIKey) REFERENCES chemicals(InChIKey)
+    updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
 );
 
 -- EU SML Group Restrictions Database
--- NOTE: InChIKey is nullable here because the source xlsx (eu10_2011.xlsx,
--- SML_group sheet) has no InChIKey column. Group restrictions are aggregated
--- by FCM substance number, not by chemical identity.
 CREATE TABLE eu_sml_group (
     id INTEGER PRIMARY KEY AUTOINCREMENT,
     InChIKey TEXT,  -- NULL for group restrictions (no InChIKey in source)
@@ -209,14 +150,14 @@ CREATE TABLE eu_sml_group (
     sml REAL,  -- Processed numeric value
     restrictions TEXT,
     created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
-    updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
-    FOREIGN KEY (InChIKey) REFERENCES chemicals(InChIKey)
+    updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
 );
 
 -- EDC (Endocrine Disrupting Chemicals) Database
+-- Complete data including substances without InChIKey
 CREATE TABLE edc (
     id INTEGER PRIMARY KEY AUTOINCREMENT,
-    InChIKey TEXT NOT NULL,
+    InChIKey TEXT,
     substance_name TEXT,
     cas_no TEXT,
     ec_no TEXT,
@@ -225,14 +166,13 @@ CREATE TABLE edc (
     source TEXT,
     notes TEXT,
     created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
-    updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
-    FOREIGN KEY (InChIKey) REFERENCES chemicals(InChIKey)
+    updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
 );
 
 -- China SML Database
 CREATE TABLE china_sml (
     id INTEGER PRIMARY KEY AUTOINCREMENT,
-    InChIKey TEXT,  -- May be NULL for this database
+    InChIKey TEXT,
     substance_name TEXT,
     cas_no TEXT,
     sml_value REAL,
@@ -241,8 +181,7 @@ CREATE TABLE china_sml (
     regulation_reference TEXT,
     notes TEXT,
     created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
-    updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
-    FOREIGN KEY (InChIKey) REFERENCES chemicals(InChIKey)
+    updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
 );
 
 -- =============================================================================
@@ -295,20 +234,11 @@ CREATE TABLE change_log (
 
 -- Registry of entries that could not be stored ("未分配条目簿")
 --
--- 上游有相当一部分条目本体没有结构：IARC 评的是感染状态与职业暴露场景
--- （"Helicobacter pylori (infection with)"、"Acheson process, occupational
--- exposure associated with"）、A 类组条目（"salts of hydrazine"、
--- "Chromium (VI) compounds, with the exception of ..."）、UVCB 工业品
--- （"alcohols, aliphatic, monohydric, saturated, linear, primary (C4-C22)"）、
--- 反应产物混合物（"reaction mass of: ..."）。实测四库合计 414 行属于这一类。
+-- 注意：由于业务表现在允许 InChIKey 为 NULL（单一表设计），
+-- 这张表主要用于记录"无法进行毒性匹配"的原因（如无 CAS 也无结构）。
 --
--- 它们拿不到 InChIKey，而四张业务表的 InChIKey 是 NOT NULL + 外键指向
--- chemicals —— 插不进去；写库又是单事务，一行失败整批回滚（iarc 曾因此
--- 846 行全废）。这些行在写库前被摘出来登记在这里，让"上游给了什么但我们
--- 收不了"可见，而不是静默丢弃。
---
--- 唯一键 (database_name, entity_key)：同一轮或跨轮重复遇到只累加 seen_count，
--- 不会长出重复行。status 区分三种情况：
+-- 唯一键 (database_name, entity_key)：同一库同一键唯一（登记走 upsert）。
+-- status 区分三种情况：
 --   'open'     待处理，还没人工判断
 --   'accepted' 人工确认结构性收不了（永远的边界，如感染状态、工种）
 --   'resolved' 后来拿到了键并入库（如上游补了 CAS，或组条目成员被展开）
@@ -326,6 +256,8 @@ CREATE TABLE unassigned_entries (
     status TEXT DEFAULT 'open',    -- 'open' | 'accepted' | 'resolved'
     notes TEXT                     -- 人工批注，自动流程不覆盖
 );
+
+CREATE UNIQUE INDEX idx_unassigned_entries_key ON unassigned_entries(database_name, entity_key);
 
 -- Data Quality Flags：已入库、但某个字段已知不可信的行
 --
@@ -384,105 +316,6 @@ CREATE INDEX idx_edc_cas ON edc(cas_no);
 
 CREATE INDEX idx_china_sml_inchikey ON china_sml(InChIKey);
 CREATE INDEX idx_china_sml_cas ON china_sml(cas_no);
-
--- Audit trail indexes
-CREATE INDEX idx_update_history_database ON update_history(database_name);
-CREATE INDEX idx_update_history_timestamp ON update_history(update_timestamp);
-CREATE INDEX idx_change_log_update_id ON change_log(update_history_id);
-CREATE INDEX idx_change_log_database ON change_log(database_name);
-CREATE INDEX idx_change_log_inchikey ON change_log(InChIKey);
-
--- 未分配条目簿：同一库同一键唯一（登记走 upsert，不靠调用方去重）
-CREATE UNIQUE INDEX idx_unassigned_entries_key
-    ON unassigned_entries(database_name, entity_key);
-CREATE INDEX idx_unassigned_entries_status ON unassigned_entries(status);
-
-CREATE UNIQUE INDEX idx_data_quality_flags_key
-    ON data_quality_flags(database_name, entity_key, flag);
-CREATE INDEX idx_data_quality_flags_status ON data_quality_flags(status);
-
--- =============================================================================
--- VIEWS FOR COMPATIBILITY
--- =============================================================================
-
--- Views that replicate the exact structure returned by load_databases()
--- These ensure backward compatibility with existing assign_toxicity() function
-
-CREATE VIEW view_svhc AS
-SELECT
-    s.substance_name AS "Substance name",
-    s.description AS "Description",
-    s.ec_no AS "EC No.",
-    s.cas_no AS "CAS No.",
-    s.reason_for_inclusion AS "Reason for inclusion",
-    s.date_of_inclusion AS "Date of inclusion",
-    s.decision AS "Decision",
-    s.iuclid_dataset AS "IUCLID dataset",
-    s.support_document AS "Support document",
-    s.response_to_comments AS "Response to comments",
-    s.remarks AS "Remarks",
-    c.CID,
-    c.Formula,
-    c.SMILES,
-    c.InChIKey,
-    c.IUPACName,
-    c.ExactMass
-FROM svhc s
-JOIN chemicals c ON s.InChIKey = c.InChIKey
-WHERE c.InChIKey IS NOT NULL;
-
-CREATE VIEW view_cmr AS
-SELECT
-    c.index_no AS "Index No",
-    c.international_chemical_identification AS "International Chemical Identification",
-    c.ec_no AS "EC No",
-    c.cas_no AS "CAS No",
-    c.hazard_class_and_category_codes AS "Hazard Class and Category Code(s)",
-    c.hazard_statement_codes AS "Hazard Statement Code(s)",
-    c.pictogram AS "Pictogram",
-    c.signal_word_codes AS "Signal Word Code(s)",
-    c.hazard_statement_codes_alt AS "Hazard statement Code(s)",
-    c.suppl_hazard_statement_codes AS "Suppl. Hazard statement Code(s)",
-    c.specific_conc_limits AS "Specific Conc. Limits",
-    c.m_factors AS "M-factors",
-    c.notes AS "Notes",
-    c.atp_inserted_updated AS "ATP inserted/ATP Updated",
-    ch.CID,
-    ch.Formula,
-    ch.SMILES,
-    ch.InChIKey,
-    ch.IUPACName,
-    ch.ExactMass
-FROM cmr c
-JOIN chemicals ch ON c.InChIKey = ch.InChIKey
-WHERE ch.InChIKey IS NOT NULL;
-
--- Additional views for other databases would follow the same pattern...
-
--- =============================================================================
--- TRIGGERS FOR AUTOMATIC TIMESTAMP UPDATES
--- =============================================================================
-
--- Update timestamp triggers for all main tables
-CREATE TRIGGER update_chemicals_timestamp
-    AFTER UPDATE ON chemicals
-    BEGIN
-        UPDATE chemicals SET updated_at = CURRENT_TIMESTAMP WHERE InChIKey = NEW.InChIKey;
-    END;
-
-CREATE TRIGGER update_svhc_timestamp
-    AFTER UPDATE ON svhc
-    BEGIN
-        UPDATE svhc SET updated_at = CURRENT_TIMESTAMP WHERE id = NEW.id;
-    END;
-
-CREATE TRIGGER update_cmr_timestamp
-    AFTER UPDATE ON cmr
-    BEGIN
-        UPDATE cmr SET updated_at = CURRENT_TIMESTAMP WHERE id = NEW.id;
-    END;
-
--- Additional triggers for other tables would follow the same pattern...
 
 -- =============================================================================
 -- INITIAL METADATA SETUP

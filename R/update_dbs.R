@@ -2273,7 +2273,6 @@ write_changes_to_db <- function(db_name, changes, key_col, fallback_col = NULL, 
   }
 
   # 修改前给旧表拍快照：仅当存在 modified 时抓取，供 change_log 逐字段对比
-  # （快照必须在 DELETE 之前取，事务外取即可——本连接独占，无并发写入）
   old_snapshot <- NULL
   if (n_modified > 0L) {
     old_snapshot <- DBI::dbGetQuery(con, paste("SELECT * FROM", db_name))
@@ -2305,11 +2304,8 @@ write_changes_to_db <- function(db_name, changes, key_col, fallback_col = NULL, 
     if (nrow(to_insert) > 0) {
       info <- DBI::dbGetQuery(con, sprintf("PRAGMA table_info(%s)", db_name))
       db_cols <- info$name
-      # 系统列（id / 时间戳）交 SQLite 自动维护：显式插入 NULL 会覆盖 DEFAULT
-      # 导致 created_at/updated_at 变 NULL。只排除目标表里真实存在的系统列，
-      # 旧式无这些列的表（及既有测试的临时表）不受影响。
+      # 系统列（id / 时间戳）交 SQLite 自动维护
       ins_cols <- setdiff(db_cols, sys_cols)
-      # 蛇形重建库的业务表 InChIKey 外键 -> chemicals（连接默认 FK ON），
       # 先保证新物质的化学记录在 chemicals 存在，避免外键报错
       upsert_chemicals(con, to_insert)
       for (col in ins_cols) {
@@ -2322,8 +2318,8 @@ write_changes_to_db <- function(db_name, changes, key_col, fallback_col = NULL, 
 
   record_update_ledger(con, db_name, changes, n_added, n_removed, n_modified,
                        old_df = old_snapshot,
-                       source_file = "update_pipeline.R",
-                       user_notes = "Incremental update with diff confirmation",
+                       source_file = "update_dbs.R",
+                       user_notes = "Incremental update with complete data",
                        key_col = key_col, fallback_col = fallback_col)
 
   message("   DB write done: +", n_added, " / -", n_removed, " / ~", n_modified)
