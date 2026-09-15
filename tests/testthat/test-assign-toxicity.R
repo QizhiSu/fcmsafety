@@ -21,10 +21,8 @@ test_that("no SMILES + missing toxtree file: skips Cramer, still matches lists",
     concentration_mg_per_kg = c(0.5, 1.2),
     stringsAsFactors = FALSE
   )
-  missing_tox <- tempfile(fileext = ".csv")   # does not exist
-
-  # must NOT error anymore (was stop before P1-③)
-  res <- assign_toxicity(d, toxtree_result = missing_tox, db_path = db_path)
+  # must NOT error anymore
+  res <- assign_toxicity(d, db_path = db_path)
 
   expect_true("Cramer_rules" %in% names(res))       # column still produced
   expect_true(all(res$Cramer_rules == "-"))          # all NA -> "-"
@@ -35,7 +33,7 @@ test_that("no SMILES + missing toxtree file: skips Cramer, still matches lists",
   unlink(db_path)
 })
 
-test_that("with SMILES + existing toxtree file: Cramer backfilled correctly", {
+test_that("with SMILES: run_toxtree called, Cramer backfilled correctly", {
   db_path <- make_assign_tox_fixture()
   d <- data.frame(
     NAME = c("Ethanol", "Formaldehyde"),
@@ -44,19 +42,21 @@ test_that("with SMILES + existing toxtree file: Cramer backfilled correctly", {
     SMILES = c("CCO", "C=O"),
     stringsAsFactors = FALSE
   )
-  tox_csv <- tempfile(fileext = ".csv")
-  utils::write.csv(
-    data.frame(
-      NAME = c("Ethanol", "Formaldehyde"),
-      CAS = c("64-17-5", "50-00-0"),
-      SMILES = c("CCO", "C=O"),
-      Cramer.rules = c("Low (Class I)", "High (Class III)"),
-      stringsAsFactors = FALSE
-    ),
-    tox_csv, row.names = FALSE
+
+  # Mock run_toxtree to return predefined results
+  mock_result <- data.frame(
+    NAME = c("Ethanol", "Formaldehyde"),
+    CAS = c("64-17-5", "50-00-0"),
+    SMILES = c("CCO", "C=O"),
+    Cramer.rules = c("Low (Class I)", "High (Class III)"),
+    stringsAsFactors = FALSE
+  )
+  testthat::local_mocked_bindings(
+    run_toxtree = function(data, ...) mock_result,
+    .package = "fcmsafety"
   )
 
-  res <- assign_toxicity(d, toxtree_result = tox_csv, db_path = db_path)
+  res <- assign_toxicity(d, db_path = db_path)
 
   expect_identical(res$Cramer_rules,
                    c("Low (Class I)", "High (Class III)"))
@@ -64,24 +64,17 @@ test_that("with SMILES + existing toxtree file: Cramer backfilled correctly", {
   unlink(db_path)
 })
 
-test_that("missing InChIKey column errors with InChIKey message (before toxtree check)", {
+test_that("missing InChIKey column errors with InChIKey message", {
   db_path <- make_assign_tox_fixture()
   d <- data.frame(NAME = "Ethanol", SMILES = "CCO", stringsAsFactors = FALSE)
-  missing_tox <- tempfile(fileext = ".csv")   # does not exist
   expect_error(
-    assign_toxicity(d, toxtree_result = missing_tox, db_path = db_path),
+    assign_toxicity(d, db_path = db_path),
     "InChIKey"
   )
   unlink(db_path)
 })
 
-test_that("auto-rerun when file missing but SMILES present (needs jar cache)", {
-  skip_on_cran()
-  skip_if(!nzchar(Sys.which("java")), "Java not available")
-  cache_dir <- tools::R_user_dir("fcmsafety", "cache")
-  skip_if(!dir.exists(file.path(cache_dir, "toxtree_app")),
-          "Toxtree app not in cache")
-
+test_that("auto-runs run_toxtree when SMILES present", {
   db_path <- make_assign_tox_fixture()
   d <- data.frame(
     NAME = c("Ethanol", "Formaldehyde"),
@@ -90,8 +83,19 @@ test_that("auto-rerun when file missing but SMILES present (needs jar cache)", {
     SMILES = c("CCO", "C=O"),
     stringsAsFactors = FALSE
   )
-  missing_tox <- tempfile(fileext = ".csv")   # does not exist -> auto run
-  res <- assign_toxicity(d, toxtree_result = missing_tox, db_path = db_path)
+  # Mock run_toxtree
+  mock_result <- data.frame(
+    NAME = c("Ethanol", "Formaldehyde"),
+    CAS = c("64-17-5", "50-00-0"),
+    SMILES = c("CCO", "C=O"),
+    Cramer.rules = c("Low (Class I)", "High (Class III)"),
+    stringsAsFactors = FALSE
+  )
+  testthat::local_mocked_bindings(
+    run_toxtree = function(data, ...) mock_result,
+    .package = "fcmsafety"
+  )
+  res <- assign_toxicity(d, db_path = db_path)
 
   expect_true(all(!is.na(res$Cramer_rules) & res$Cramer_rules != "-"))
   unlink(db_path)
@@ -155,8 +159,7 @@ test_that("assign_toxicity reports the CMR evidence codes behind each flag", {
                  "NOSUCHKEYAAAA-UHFFFAOYSA-N"),
     stringsAsFactors = FALSE
   )
-  res <- assign_toxicity(d, toxtree_result = tempfile(fileext = ".csv"),
-                         db_path = db_path)
+  res <- assign_toxicity(d, db_path = db_path)
 
   expect_true("CMR_H_codes" %in% names(res))
   # 同键两行合并；V 类码在 IV 类之前；无命中为 "-"
@@ -172,8 +175,7 @@ test_that("missing cmr table degrades to '-' instead of failing", {
   db_path <- make_assign_tox_fixture()   # 该夹具不建 cmr / cmr_suspect 表
   d <- data.frame(NAME = "x", InChIKey = "AAAABBBBCCCCDD-UHFFFAOYSA-N",
                   stringsAsFactors = FALSE)
-  res <- assign_toxicity(d, toxtree_result = tempfile(fileext = ".csv"),
-                         db_path = db_path)
+  res <- assign_toxicity(d, db_path = db_path)
 
   expect_identical(res$CMR_H_codes, "-")
   expect_identical(res$CMR, "-")
@@ -181,7 +183,7 @@ test_that("missing cmr table degrades to '-' instead of failing", {
 })
 
 
-test_that("SMILES present + Toxtree run fails: degrades to matching-only (GUI 无 Java 场景)", {
+test_that("SMILES present + Toxtree run fails: degrades to matching-only", {
   db_path <- make_assign_tox_fixture()
   d <- data.frame(
     NAME = c("Hit compound", "Unknown compound"),
@@ -190,15 +192,14 @@ test_that("SMILES present + Toxtree run fails: degrades to matching-only (GUI �
     InChIKey = c("AAAABBBBCCCCDD-UHFFFAOYSA-N", "ZZZZYYYYXXXXWW-VVHHHHHHHH-N"),
     stringsAsFactors = FALSE
   )
-  missing_tox <- tempfile(fileext = ".csv")   # does not exist
 
   # run_toxtree 一旦失败（无 Java / jar 下载失败）不再拖垮整个筛查：
-  # 法规匹配照常，Cramer 列留空——与"无 SMILES 跳过分级"同一策略
+  # 法规匹配照常，Cramer 列留空
   testthat::local_mocked_bindings(
-    run_toxtree = function(data, output, ...) stop("Java not found (mocked)"),
+    run_toxtree = function(data, ...) stop("Java not found (mocked)"),
     .package = "fcmsafety"
   )
-  res <- assign_toxicity(d, toxtree_result = missing_tox, db_path = db_path)
+  res <- assign_toxicity(d, db_path = db_path)
 
   expect_s3_class(res, "data.frame")
   expect_true(all(res$Cramer_rules == "-"))          # Cramer 留空 -> "-"

@@ -243,14 +243,18 @@ test_that("assign_toxicity 端到端产出 Toxic_level 与依据", {
     SMILES = c(rep("CCO", 6), "CCN", "CCC"),
     stringsAsFactors = FALSE
   )
-  tox_csv <- tempfile(fileext = ".csv")
-  utils::write.csv(
-    data.frame(SMILES = "CCN", Cramer.rules = "High (Class III)",
-               stringsAsFactors = FALSE),
-    tox_csv, row.names = FALSE
+  # Mock run_toxtree to return Cramer III for "CCN"
+  mock_result <- data.frame(
+    SMILES = "CCN",
+    Cramer.rules = "High (Class III)",
+    stringsAsFactors = FALSE
+  )
+  testthat::local_mocked_bindings(
+    run_toxtree = function(data, ...) mock_result,
+    .package = "fcmsafety"
   )
 
-  res <- assign_toxicity(d, toxtree_result = tox_csv, db_path = db_path)
+  res <- assign_toxicity(d, db_path = db_path)
 
   expect_true(all(c("Toxic_level", "Toxic_level_basis") %in% names(res)))
   expect_identical(res$Toxic_level, c("V", "IV", "V", "IV", "IV", "IV", "IV", "-"))
@@ -285,8 +289,7 @@ test_that("有 relocate 锚点时整块毒性列被搬走，等级两列跟着�
                   ExactMass = 46.04,
                   extra = "keep me",
                   stringsAsFactors = FALSE)
-  res <- assign_toxicity(d, toxtree_result = tempfile(fileext = ".csv"),
-                         db_path = db_path)
+  res <- assign_toxicity(d, db_path = db_path)
 
   block <- c("Cramer_rules", "SVHC", "CMR", "CMR_H_codes", "CMR_suspect",
              "EDC", "IARC", "EU_SML", "China_SML",
@@ -309,8 +312,7 @@ test_that("没有 cmr / iarc / eu_sml 等表时定级退化为 '-' 而不是报�
                   InChIKey = c("AAAABBBBCCCCDD-UHFFFAOYSA-N",
                                "ZZZZYYYYXXXXWW-VVHHHHHHHH-N"),
                   stringsAsFactors = FALSE)
-  res <- assign_toxicity(d, toxtree_result = tempfile(fileext = ".csv"),
-                         db_path = db_path)
+  res <- assign_toxicity(d, db_path = db_path)
 
   expect_identical(res$Toxic_level, c("V", "-"))
   expect_identical(res$Toxic_level_basis, c("SVHC", "-"))

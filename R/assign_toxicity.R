@@ -18,27 +18,14 @@
 
 #' Direct SQL-Based Toxicity Assignment
 #'
-#' This module provides a clean architecture where assign_toxicity() queries
-#' the SQLite database directly without loading data into global variables.
-#' This eliminates global variable pollution and provides better performance.
+#' Queries the SQLite database to assign toxicity levels (I-V) to compounds
+#' based on regulatory database matches (SVHC, CMR, EDC, IARC, EU/China SML)
+#' and optional Cramer classification via Toxtree.
 #'
-#' Enhanced version of assign_toxicity that queries SQLite database directly
-#' without loading data into global variables. Maintains the exact same interface
-#' and functionality as the original function while providing better architecture.
-#'
-#' @importFrom DBI dbConnect dbDisconnect dbGetQuery
-#' @importFrom RSQLite SQLite
-#' @importFrom dplyr mutate case_when na_if
-#' @importFrom magrittr %>%
-#' @param data Your data containing at least InChIKey
-#' @param toxtree_result Path to the Toxtree result CSV (default:
-#'   "toxtree_results.csv"). Cramer classification is optional: if the file
-#'   exists it is used as-is (no rerun); if it does not exist and \code{data}
-#'   has a SMILES column, \code{\link{run_toxtree}()} is called automatically
-#'   to generate it (one-time ~81 MB download + Java 8+ needed on first run);
-#'   if it does not exist and \code{data} has no SMILES column, Cramer
-#'   classification is skipped with a message and only regulatory-list
-#'   matching is performed.
+#' @param data Your data containing at least InChIKey column. If it also has
+#'   a SMILES column, Cramer classification will be run automatically (requires
+#'   Java 8+). If SMILES is absent or Toxtree fails, only regulatory matching
+#'   is performed.
 #' @param check_updates Logical, whether to check for available updates (default: FALSE)
 #' @param auto_update Logical, whether to automatically apply available updates
 #'   (default: FALSE; only relevant when check_updates = TRUE)
@@ -49,29 +36,11 @@
 #'   Issues sheets); a `.csv` path produces the old flat file.
 #' @param db_path Path to an alternative SQLite database (default: NULL =
 #'   package default database). Intended for tests and custom deployments.
-##'   \code{docs/adr/0008-20260910-report-export-and-failure-visibility.md} for
-#'   the measured impact.
-#' @return A data.frame or tibble with toxicity assigned (same as original function).
-#'   Besides the existing regulatory flags (SVHC / CMR / CMR_suspect / EDC / IARC /
-#'   EU_SML / China_SML / Cramer_rules) it also carries \code{CMR_H_codes}: the
-#'   CMR evidence codes that drive the toxicity tier, i.e. any of H340/H350/H360
-#'   (tier V) and H341/H351/H361 (tier IV) found in the \code{cmr} table, joined
-#'   with \code{"; "} and listed tier-V first, or \code{"-"} when there are none.
-#'
-#'   \code{Toxic_level} grades each compound I–V by the rules in
-#'   \code{inst/toxicity_levels.png} (when several rules hit, the strictest wins),
-#'   and \code{Toxic_level_basis} names the rule(s) behind that grade. A compound
-#'   with no evidence at all gets \code{"-"} rather than level I — the rules award
-#'   tier I only for \code{1.8 < SML <= 60}, so a blank means "nothing found",
-#'   not "found harmless". For substances in several rows the strictest value
-#'   wins: the smallest SML (EU and China compared together) and, for IARC, the
-#'   most severe group (1 &gt; 2A &gt; 2B &gt; 3).
-#' @export
 #' @export
 #' @encoding UTF-8
-assign_toxicity <- function(data, toxtree_result = "toxtree_results.csv",
-                           check_updates = FALSE, auto_update = FALSE, show_update_details = TRUE,
-                           output_file = NULL, db_path = NULL) {
+assign_toxicity <- function(data, check_updates = FALSE, auto_update = FALSE,
+                           show_update_details = TRUE, output_file = NULL,
+                           db_path = NULL) {
 
   message("🧪 FCMSafety Toxicity Assignment with Direct SQL Queries")
   message(paste(rep("=", 60), collapse = ""))
@@ -101,36 +70,22 @@ assign_toxicity <- function(data, toxtree_result = "toxtree_results.csv",
     stop("Input data must contain an 'InChIKey' column")
   }
 
-  # Step 3: Read and validate toxtree results (optional since P1-③)
-  # 方案 A（模块化）：toxtree_result 文件不存在、且输入含 SMILES 列时，
-  # 自动调用 run_toxtree() 现场生成（run_toxtree 仍是独立导出的函数，
-  # 这里只是调用它，不内联其实现）；文件已存在则直接读取，不重复跑。
-  # P1-③ 变更：文件不存在且数据无 SMILES 列时不再 stop——跳过 Cramer
-  # 分级（无 SMILES 本就无从计算），仅做法规清单匹配。
-  tox <- NULL
-  if (file.exists(toxtree_result)) {
-    tox <- utils::read.csv(toxtree_result)
-  } else if ("SMILES" %in% names(data)) {
-    message("🔄 Toxtree result file not found: ", toxtree_result)
-    message("   Automatically running Toxtree to generate it...")
-    # Toxtree 运行失败（无 Java / jar 下载失败 / 个别环境问题）不拖垮整个筛查：
-    # 法规清单匹配照常，Cramer 列留空——与"无 SMILES 跳过分级"（P1-③）同一策略。
-    tox <- tryCatch({
-      run_toxtree(data, output = toxtree_result)
-      utils::read.csv(toxtree_result)
+  # Step 3: Run Cramer classification if SMILES is available
+  # 有 SMILES 列 → 直接调 run_toxtree() 实时计算 Cramer 分级
+  # 无 SMILES 列 / Toxtree 失败 → 降级为仅法规匹配，Cramer 列留空
+  cramer_df <- NULL
+  if ("SMILES" %in% names(data)) {
+    message("🔬 Running Cramer classification via Toxtree...")
+    cramer_df <- tryCatch({
+      run_toxtree(data)
     }, error = function(e) {
       message("⚠️  Toxtree failed: ", conditionMessage(e))
       message("   Continuing with regulatory matching only; Cramer columns stay blank.")
       NULL
     })
   } else {
-    message("ℹ️  Toxtree result file not found: ", toxtree_result,
-            "\n   Input data has no SMILES column, so Toxtree cannot be run. ",
-            "Skipping Cramer classification; regulatory list matching only.")
-  }
-
-  if (!"SMILES" %in% names(data)) {
-    message("⚠️  No SMILES column found in input data. Cramer rules assignment may be limited.")
+    message("ℹ️  No SMILES column found. Skipping Cramer classification; ",
+            "regulatory list matching only.")
   }
 
   # Step 4: Perform toxicity assignment using direct SQL queries
@@ -270,8 +225,8 @@ assign_toxicity <- function(data, toxtree_result = "toxtree_results.csv",
   china_sml_num <- china_sml_summary$sml[match(data$InChIKey, china_sml_summary$InChIKey)]
   iarc_group <- iarc_summary$group_classification[match(data$InChIKey, iarc_summary$InChIKey)]
 
-  cramer_vals <- if ("SMILES" %in% names(data) && !is.null(tox)) {
-    tox$Cramer.rules[match(data$SMILES, tox$SMILES)]
+  cramer_vals <- if (!is.null(cramer_df) && "Cramer.rules" %in% names(cramer_df)) {
+    cramer_df$Cramer.rules[match(data$SMILES, cramer_df$SMILES)]
   } else {
     rep(NA_character_, nrow(data))
   }

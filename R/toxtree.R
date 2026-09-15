@@ -3,7 +3,7 @@
 #
 # 本文件收纳所有 Toxtree 相关接口：
 #   - run_toxtree()       R 内直接调用 Toxtree CLI 完成 Cramer 分类，
-#                         产出 assign_toxicity() 可直接消费的 toxtree_results.csv
+#                         产出 data.frame，直接返回给调用方
 #   - ensure_toxtree_jar() jar 查找/按需下载（内部函数）
 #
 # 设计决策见 docs/adr/0001-toxtree-via-local-cli.md 与
@@ -454,8 +454,7 @@ ensure_toxtree_jar <- function(jar_path = NULL, download = TRUE) {
 #' Run Toxtree Cramer classification from R
 #'
 #' 在 R 内直接调用 Toxtree 的无界面（headless）模式完成 Cramer 分类，
-#' 不再需要手动打开 Toxtree GUI 做批处理。产出与 GUI 工作流同构的
-#' \code{toxtree_results.csv}，可直接传给 \code{\link{assign_toxicity}()}。
+#' 不再需要手动打开 Toxtree GUI 做批处理。
 #'
 #' 首次运行会自动从 SourceForge 下载 Toxtree（约 81 MB，一次性），
 #' 之后复用缓存。也可以用 \code{jar_path} 指向本机已有的 Toxtree 安装
@@ -475,8 +474,8 @@ ensure_toxtree_jar <- function(jar_path = NULL, download = TRUE) {
 #'   \code{"toxtree.tree.cramer3.RevisedCramerDecisionTree"}（修订版）。
 #'   注意：rJava 路径目前仅支持 \code{"toxTree.tree.cramer.CramerRules"}；
 #'   其他模块会回退到 CLI 路径。
-#' @param output 结果文件路径，默认 \code{"toxtree_results.csv"}，
-#'   供 \code{assign_toxicity()} 直接消费。
+#' @param output 结果文件路径（可选），默认 NULL（不写文件）。
+#'   设为文件路径可将结果保存到 CSV。
 #' @param jar_path 可选，本机已有的 Toxtree 主 jar 路径；缺省时自动
 #'   查找缓存并按需下载。
 #' @param cas_col CAS 列（列名或列序号），默认自动找 \code{"CAS"}。
@@ -486,15 +485,14 @@ ensure_toxtree_jar <- function(jar_path = NULL, download = TRUE) {
 #'   设为 FALSE 强制使用 CLI 路径。
 #'
 #' @return 一个 data.frame：输入的 NAME / CAS / SMILES 加上归一化后的
-#'   \code{Cramer.rules} 结果列（及决策路径列）。同时写入 \code{output}。
+#'   \code{Cramer.rules} 结果列。同时写入 \code{output}（如果指定）。
 #'
 #' @importFrom dplyr mutate select filter
-#' @export
 #' @export
 #' @encoding UTF-8
 run_toxtree <- function(data,
                         module = "toxTree.tree.cramer.CramerRules",
-                        output = "toxtree_results.csv",
+                        output = NULL,
                         jar_path = NULL,
                         cas_col = "CAS",
                         name_col = "NAME",
@@ -647,10 +645,12 @@ run_toxtree <- function(data,
     result <- full[, c(names(tox_input), extra_cols), drop = FALSE]
   }
 
-  # --- 写出结果 ---
-  utils::write.csv(result, output, row.names = FALSE)
-  message("Results written to: ", normalizePath(output))
-  message("Next step: assign_toxicity(data, toxtree_result = \"", output, "\")")
+  # --- 写出结果（可选）---
+  if (!is.null(output)) {
+    utils::write.csv(result, output, row.names = FALSE)
+    message("Results written to: ", normalizePath(output))
+  }
+  message("Cramer classification complete.")
   message(paste(rep("-", 60), collapse = ""))
 
   invisible(result)
@@ -685,10 +685,12 @@ run_toxtree <- function(data,
     cas_vec    = tox_input$CAS
   )
 
-  # --- write output ---
-  utils::write.csv(result, output, row.names = FALSE)
-  message("Results written to: ", normalizePath(output))
-  message("Next step: assign_toxicity(data, toxtree_result = \"", output, "\")")
+  # --- write output (optional) ---
+  if (!is.null(output)) {
+    utils::write.csv(result, output, row.names = FALSE)
+    message("Results written to: ", normalizePath(output))
+  }
+  message("Cramer classification complete.")
   message(paste(rep("-", 60), collapse = ""))
   invisible(result)
 }
@@ -710,7 +712,7 @@ run_toxtree <- function(data,
   ))
 }
 
-#' Normalize Toxtree CLI output to the toxtree_results.csv convention (internal)
+#' Normalize Toxtree CLI output to Cramer.rules convention (internal)
 #'
 #' CLI 输出的结果列名为 "Cramer rules"（空格）；GUI 工作流里的
 #' "Cramer.rules" 其实是 read.csv(check.names = TRUE) 的自动改名。
