@@ -115,8 +115,16 @@ launch_database_inspector <- function(port = 3838, launch_browser = TRUE) {
       Sys.sleep(1)
     }
 
-    opened <- try(shell.exec(url), silent = TRUE)
-    if (inherits(opened, "try-error")) {
+    # Open the URL in the default browser using the correct command
+    # for each platform.  shell.exec() only works on Windows.
+    opened <- switch(Sys.info()[["sysname"]],
+      "Darwin"   = try(system2("open", url, wait = FALSE), silent = TRUE),
+      "Windows"  = try(shell.exec(url), silent = TRUE),
+      "Linux"    = try(system2("xdg-open", url, wait = FALSE), silent = TRUE),
+      # Fallback to shiny's browseURL for any other platform
+      try(utils::browseURL(url), silent = TRUE)
+    )
+    if (inherits(opened, "try-error") || identical(opened, 1L)) {
       # Last-resort fallback: utils::browseURL (works when "browser" is set).
       try(utils::browseURL(url), silent = TRUE)
     }
