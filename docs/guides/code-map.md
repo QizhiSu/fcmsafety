@@ -1,7 +1,7 @@
 # code-map（fcmsafety 代码地图）
 
 给"想改点什么"的人用。**结论先行**：绝大多数需求只在 1-2 个文件里，
-不必通读 17 个 R 文件（约 13,600 行）。
+不必通读 14 个 R 文件。
 
 > 行号会随后续改动漂移。**优先按函数名搜索**，行号只用来估算距离。
 > 每个文件内部都有 `# ---- 分区名 ----` 标记，用编辑器的"转到符号"或
@@ -55,48 +55,47 @@ res <- assign_toxicity(data, output_file = "report.xlsx")
 
 ---
 
-## 3. 文件地图（17 个文件，~13,600 行）
+## 3. 文件地图（14 个文件）
 
 ### 主链路（按数据流顺序）
 
-| 文件 | 行数 | 职责 | 关键函数 |
-|---|---:|---|---|
-| `download_sources.R` | ~840 | 抓官方原始数据存 xlsx。**最易失效**（官网改版就废） | `download_svhc` `download_clp` `download_iarc` `download_eu_sml` |
-| `update_dbs.R` | ~3370 | 单一文件整合三条更新链路：DB_SOURCES 注册表 + CMR/IARC/EU_SML 标准化与取数 + 通用增量流水线 + SVHC 专用流水线 | `update_database_auto()` `update_source_auto()` `run_incremental_update()` `update_svhc_auto()` |
-| `database.R` | ~1240 | 底座：连接/建表/迁移/装载 | `get_db_connection()` `migrate_xlsx_to_sqlite()` |
-| `assign_toxicity.R` | ~1160 | **核心**：查库匹配 + 定级 I–V + 组汇总 | `assign_toxicity()` `compute_toxicity_levels()` |
-| `report_export.R` | ~250 | 导出带样式的 Excel 报告 | `export_toxicity_report()` |
+| 文件 | 职责 | 关键函数 |
+|---|---|
+| `download_sources.R` | 抓官方原始数据存 xlsx。**最易失效**（官网改版就废） | `download_svhc` `download_clp` `download_iarc` `download_eu_sml` |
+| `update_dbs.R` | 单一文件整合三条更新链路：DB_SOURCES 注册表 + CMR/IARC/EU_SML 标准化与取数 + 通用增量流水线 + SVHC 专用流水线 | `update_database_auto()` `update_source_auto()` `run_incremental_update()` `update_svhc_auto()` |
+| `database.R` | 底座：连接/建表/迁移/装载 | `get_db_connection()` `migrate_xlsx_to_sqlite()` |
+| `assign_toxicity.R` | **核心**：查库匹配 + 定级 I–V + 组汇总 | `assign_toxicity()` `compute_toxicity_levels()` |
+| `report_export.R` | 导出带样式的 Excel 报告 | `export_toxicity_report()` |
 
 ### 筛查辅助
 
-| 文件 | 行数 | 职责 |
-|---|---:|---|
-| `toxtree.R` | ~810 | Toxtree：rJava 快速路径 + CLI 回退 + jar 按需下载 |
+| 文件 | 职责 |
+|---|---|
+| `toxtree.R` | Toxtree：rJava 快速路径 + CLI 回退 + jar 按需下载 |
 
 ### GUI（三个文件）
 
-| 文件 | 行数 | 职责 |
-|---|---:|---|
-| `shiny_launch.R` | ~130 | `launch_database_inspector()`：端口/浏览器/启动 |
-| `shiny_ui.R` | ~1480 | `fcm_app_ui()`：纯静态 UI 拼装（CSS/JS/布局） |
-| `shiny_server.R` | ~1600 | `fcm_app_server()`：全部响应式逻辑（i18n/主表/一键操作/筛查面板） |
+| 文件 | 职责 |
+|---|---|
+| `shiny_launch.R` | `launch_database_inspector()`：端口/浏览器/启动 |
+| `shiny_ui.R` | `fcm_app_ui()`：纯静态 UI 拼装（CSS/JS/布局） |
+| `shiny_server.R` | `fcm_app_server()`：全部响应式逻辑（i18n/主表/一键操作/筛查面板） |
 
 ### 支撑
 
-| 文件 | 行数 | 职责 |
-|---|---:|---|
-| `main.R` | ~220 | 建库 / 状态两个用户入口 |
-| `manual_lists.R` | ~220 | 探测人工放进 `inst/` 的新清单并消费掉 |
-| `update_guard.R` | ~220 | 一键更新的守卫与判读（纯函数，有测试覆盖） |
-| `update_audit.R` | ~300 | 读更新账本（`get_update_history()`） |
-| `globals.R` | ~35 | 声明全局变量消 check NOTE |
+| 文件 | 职责 |
+|---|---|
+| `main.R` | 建库 / 状态两个用户入口 |
+| `manual_lists.R` | 探测人工放进 `inst/` 的新清单并消费掉 |
+| `update_guard.R` | 一键更新的守卫与判读（纯函数，有测试覆盖） |
+| `update_audit.R` | 读更新账本（`get_update_history()`） |
+| `globals.R` | 声明全局变量消 check NOTE |
 
 ### 文档与决策
 
 | 位置 | 内容 |
 |---|---|
-| docs/adr/0001–0012 | 架构决策记录。**每个 ADR 都写了"为什么不用另一种做法"** |
-| `INTERN_HANDOFF.md` | 交接说明（历史版本，部分内容已随精简过时） |
+| `docs/adr/` | 架构决策记录。**每个 ADR 都写了"为什么不用另一种做法"** |
 
 ---
 
